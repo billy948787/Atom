@@ -1,10 +1,10 @@
 #[derive(Debug, Clone)]
 pub struct Camera {
-    position: [f32; 3],
-    rotation: [f32; 3],
-    fov: f32, // Field of view in degrees
-    near_plane: f32,
-    far_plane: f32,
+  pub position: [f32; 3],
+  pub rotation: [f32; 3],
+  pub fov: f32,      // Field of view in degrees
+  pub near_plane: f32,
+  pub far_plane: f32,
 }
 
 impl std::fmt::Display for Camera {

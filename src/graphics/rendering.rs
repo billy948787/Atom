@@ -1,4 +1,4 @@
-use glfw::{Action, Context, Key, PWindow, WindowEvent};
+use glfw::{Context, PWindow, WindowEvent};
 
 pub fn create_window(
     height: u32,
@@ -28,3 +28,5 @@ pub fn create_window(
         }
     }
 }
+
+pub fn render_scene(_window: &mut PWindow, _scene: &crate::graphics::scene::Scene) {}

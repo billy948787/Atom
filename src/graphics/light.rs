@@ -1,8 +1,8 @@
 #[derive(Debug, Clone)]
 pub struct Light {
-    position: [f32; 3],
-    color: [f32; 3],
-    intensity: f32,
+    pub position: [f32; 3],
+    pub color: [f32; 3],
+    pub intensity: f32,
 }
 
 impl std::fmt::Display for Light {
