@@ -21,5 +21,13 @@ fn main() {
         },
     );
 
-    reader::obj_reader::read_file("test_model/Cube.obj");
+    let scene = match reader::obj_reader::read_file("test_model/Cube.obj") {
+        Ok(scene) => scene,
+        Err(e) => {
+            eprintln!("Error reading file: {:?}", e);
+            return;
+        }
+    };
+
+    println!("Scene loaded successfully: {:#?}", scene);
 }
