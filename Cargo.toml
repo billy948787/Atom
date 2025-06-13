@@ -1,0 +1,11 @@
+[package]
+name = "Atom"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ash = "0.38.0"
+glfw = "=0.59.0"
+syn = "2.0.102"
+thiserror = "2"
+quote = "1.0"
