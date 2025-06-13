@@ -1,5 +1,4 @@
 use crate::graphics;
-use crate::math;
 #[derive(Debug, Clone, Default)]
 pub struct Scene {
     pub objects: Vec<graphics::mesh::Mesh>,

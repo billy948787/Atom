@@ -37,6 +37,8 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
 
         let parts: Vec<&str> = line.split_whitespace().collect();
 
+        let line_number = file.lines().position(|l| l == line).unwrap_or(0) + 1;
+
         match parts[0] {
             "v" => {
                 // Vertex position
@@ -44,28 +46,28 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                     return Err(FileError::FormatError(
                         "Invalid vertex position".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     ));
                 }
                 let x = parts[1].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 let y = parts[2].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 let z = parts[3].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 positions.push(Vec3 { x, y, z });
@@ -76,21 +78,21 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                     return Err(FileError::FormatError(
                         "Invalid texture coordinates".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     ));
                 }
                 let u = parts[1].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 let v = parts[2].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 tex_coords.push(Vec2 { x: u, y: v });
@@ -102,28 +104,28 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                     return Err(FileError::FormatError(
                         "Invalid vertex normal".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     ));
                 }
                 let x = parts[1].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 let y = parts[2].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 let z = parts[3].parse::<f32>().map_err(|_| {
                     FileError::FormatError(
                         "Invalid float".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     )
                 })?;
                 normals.push(Vec3 { x, y, z });
@@ -135,7 +137,7 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                     return Err(FileError::FormatError(
                         "Invalid face definition".to_string(),
                         crate::reader::file_type::FileType::Obj,
-                        file.lines().position(|l| l == line).unwrap_or(0),
+                        line_number,
                     ));
                 }
                 for part in &parts[1..] {
@@ -148,7 +150,7 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                         return Err(FileError::FormatError(
                             "Invalid vertex index".to_string(),
                             crate::reader::file_type::FileType::Obj,
-                            file.lines().position(|l| l == line).unwrap_or(0),
+                            line_number,
                         ));
                     }
 
