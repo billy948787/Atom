@@ -1,32 +1,28 @@
-use glfw::{Context, PWindow, WindowEvent};
+use std::sync::Arc;
 
-pub fn create_window(
-    height: u32,
-    width: u32,
-    title: &str,
-    window_control_cb: fn() -> bool,
-    event_control_cb: fn(WindowEvent),
-) {
-    use glfw::fail_on_errors;
-    let mut glfw = glfw::init(fail_on_errors!()).unwrap();
+use crate::graphics::{
+    error::{self, GraphicsError},
+    scene,
+};
 
-    let (mut window, events) = glfw
-        .create_window(width, height, title, glfw::WindowMode::Windowed)
-        .expect("Failed to create GLFW window");
+// fn draw(scene: &scene::Scene, render_context: &RenderContext) -> Result<(), GraphicsError> {
+//     let serface = vulkano::swapchain::Surface::from_window(instance, window)
+//     Ok(())
+// }
 
-    window.make_current();
-    window.set_key_polling(true);
-
-    while !window.should_close() && window_control_cb() {
-        // Swap front and back buffers
-        window.swap_buffers();
-
-        // Poll for and process events
-        glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&events) {
-            event_control_cb(event);
-        }
-    }
+pub struct RenderContext {
+    window: Arc<winit::window::Window>,
+    scene: scene::Scene,
+    swapchain: Arc<vulkano::swapchain::Swapchain>,
+    pipeline: Arc<vulkano::pipeline::GraphicsPipeline>,
+    render_pass: Arc<vulkano::render_pass::RenderPass>,
+    viewport: vulkano::pipeline::graphics::viewport::Viewport,
 }
 
-pub fn render_scene(_window: &mut PWindow, _scene: &crate::graphics::scene::Scene) {}
+// fn create_render_context(
+//     window: Arc<winit::window::Window>,
+//     scene: scene::Scene,
+// ) -> Result<RenderContext, GraphicsError> {
+    
+
+// }
