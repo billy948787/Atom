@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use vulkano::instance::InstanceCreateInfo;
+use vulkano::instance::{InstanceCreateFlags, InstanceCreateInfo};
 use winit::{
     application::ApplicationHandler,
     window::{self, WindowAttributes},
@@ -13,7 +13,7 @@ pub struct App {
     instance: Arc<vulkano::instance::Instance>,
     render_context: HashMap<winit::window::WindowId, crate::graphics::rendering::RenderContext>,
     // queue: Arc<vulkano::device::Queue>,
-    device: Arc<vulkano::device::Device>,
+    // device: Arc<vulkano::device::Device>,
 }
 
 impl App {
@@ -23,6 +23,12 @@ impl App {
             library,
             InstanceCreateInfo {
                 application_name: Some("Atom Engine".to_string()),
+                // max_api_version: Some(vulkano::Version::V1_0),
+                enabled_extensions: vulkano::instance::InstanceExtensions{
+                    khr_portability_enumeration: true,
+                    ..Default::default()
+                },
+                flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
                 ..Default::default()
             },
         )
@@ -50,12 +56,12 @@ impl App {
 
         println!("Using device: {}", suitable_device.properties().device_name);
 
-        let virtual_device = vulkano::device::Device::new(
-            suitable_device,
-            vulkano::device::DeviceCreateInfo{
+        // let virtual_device = vulkano::device::Device::new(
+        //     suitable_device,
+        //     vulkano::device::DeviceCreateInfo{
                 
-            }
-        );
+        //     }
+        // );
 
 
 
