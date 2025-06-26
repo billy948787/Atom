@@ -18,6 +18,18 @@ pub enum VulkanError {
 
     #[error("Vulkan synchronization error: {0}")]
     SynchronizationError(String),
+
+    #[error("Vulkan surface creation error: {0}")]
+    SurfaceCreationError(String),
+
+    #[error("Shader compilation error: {0}")]
+    ShaderCompilationError(String),
+
+    #[error("Vulkan pipeline layout error: {0}")]
+    PipelineLayoutError(String),
+
+    #[error("Vulkan pipeline creation error: {0}")]
+    PipelineCreationError(String),
 }
 #[derive(Error, Debug)]
 pub enum GraphicsError {
