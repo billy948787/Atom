@@ -14,5 +14,5 @@ pub struct Vertex {
     #[format(R32G32B32_SFLOAT)]
     pub normal: crate::math::vector::Vec3,
     #[format(R32G32_SFLOAT)]
-    pub tex_coords: crate::math::vector::Vec2,
+    pub tex_coord: crate::math::vector::Vec2,
 }

@@ -33,6 +33,9 @@ pub enum VulkanError {
 }
 #[derive(Error, Debug)]
 pub enum GraphicsError {
+    #[error("Vulkan error: {0}")]
+    VulkanError(#[from] VulkanError),
+
     #[error("Invalid texture format: {0}")]
     InvalidTextureFormat(String),
 
