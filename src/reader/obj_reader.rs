@@ -19,7 +19,7 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
     let mut scene = graphics::scene::Scene::new();
 
     let mut hash_map = std::collections::HashMap::<graphics::vertex::Vertex, u32>::new();
-    
+
     // Temporary vectors to hold positions, normals, and texture coordinates
     let mut positions = std::vec::Vec::<Vec3>::new();
     let mut normals = std::vec::Vec::<Vec3>::new();
@@ -164,16 +164,17 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                             z: 0.0,
                         }
                     };
-                    let tex_coord = if indices.len() > 1 && indices[1] < tex_coords.len() {
-                        Some(tex_coords[indices[1]])
-                    } else {
-                        None
-                    };
+
+                    let tex_coord = indices
+                        .get(1)
+                        .and_then(|&i| tex_coords.get(i))
+                        .cloned()
+                        .unwrap_or(Vec2 { x: 0.0, y: 0.0 });
 
                     let vertex = Vertex {
                         position,
                         normal,
-                        tex_coords: tex_coord,
+                        tex_coord,
                     };
 
                     // Insert vertex into the hash map if it doesn't already exist

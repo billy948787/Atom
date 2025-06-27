@@ -31,12 +31,13 @@ use crate::graphics::{
 // }
 
 pub struct RenderContext {
-    window: Arc<winit::window::Window>,
-    swapchain: Arc<vulkano::swapchain::Swapchain>,
-    pipeline: Arc<vulkano::pipeline::GraphicsPipeline>,
-    viewport: vulkano::pipeline::graphics::viewport::Viewport,
-    recreate_swapchain: bool,
-    previous_frame_end: Option<Box<dyn vulkano::sync::GpuFuture>>,
+    pub window: Arc<winit::window::Window>,
+    pub swapchain: Arc<vulkano::swapchain::Swapchain>,
+    pub pipeline: Arc<vulkano::pipeline::GraphicsPipeline>,
+    pub viewport: vulkano::pipeline::graphics::viewport::Viewport,
+    pub previous_frame_end: Option<Box<dyn vulkano::sync::GpuFuture>>,
+    pub image_views: Vec<Arc<vulkano::image::view::ImageView>>,
+    pub recreate_swapchain: bool,
 }
 pub fn create_render_context(
     window: Arc<winit::window::Window>,
@@ -44,12 +45,13 @@ pub fn create_render_context(
     instance: Arc<vulkano::instance::Instance>,
     memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
 ) -> Result<RenderContext, crate::graphics::error::VulkanError> {
-    let surface = vulkano::swapchain::Surface::from_window(instance, window.clone()).map_err(|e| {
-        error::VulkanError::SurfaceCreationError(format!(
-            "Failed to create surface from window: {}",
-            e
-        ))
-    })?;
+    let surface =
+        vulkano::swapchain::Surface::from_window(instance, window.clone()).map_err(|e| {
+            error::VulkanError::SurfaceCreationError(format!(
+                "Failed to create surface from window: {}",
+                e
+            ))
+        })?;
 
     let window_size = window.inner_size();
 
@@ -229,14 +231,118 @@ pub fn create_render_context(
         viewport,
         swapchain,
         pipeline,
-        previous_frame_end,
         recreate_swapchain: false,
+        previous_frame_end,
+        image_views,
     })
 }
 
 pub fn draw_scene(
     render_context: &mut RenderContext,
+    command_buffer_allocator: Arc<
+        vulkano::command_buffer::allocator::StandardCommandBufferAllocator,
+    >,
+    queue: Arc<vulkano::device::Queue>,
     scene: &scene::Scene,
 ) -> Result<(), GraphicsError> {
+    if render_context.recreate_swapchain {
+        recreate_swapchain(render_context)?;
+        render_context.recreate_swapchain = false;
+    }
+    let (image_index, suboptimal, acquire_future) =
+        match vulkano::swapchain::acquire_next_image(render_context.swapchain.clone(), None)
+            .map_err(vulkano::Validated::unwrap)
+        {
+            Ok(result) => result,
+            Err(vulkano::VulkanError::OutOfDate) => {
+                render_context.recreate_swapchain = true;
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(error::GraphicsError::from(
+                    error::VulkanError::SwapchainError(format!(
+                        "Failed to acquire next image: {}",
+                        e
+                    )),
+                ));
+            }
+        };
+
+    if suboptimal {
+        render_context.recreate_swapchain = true;
+    }
+
+    let mut builder = vulkano::command_buffer::AutoCommandBufferBuilder::primary(
+        command_buffer_allocator,
+        queue.queue_family_index(),
+        vulkano::command_buffer::CommandBufferUsage::OneTimeSubmit,
+    )
+    .map_err(|e| {
+        error::VulkanError::CommandBufferError(format!(
+            "Failed to create command buffer builder: {}",
+            e
+        ))
+    })?;
+
+    builder
+        .begin_rendering(vulkano::command_buffer::RenderingInfo {
+            color_attachments: vec![Some(vulkano::command_buffer::RenderingAttachmentInfo {
+                load_op: vulkano::render_pass::AttachmentLoadOp::Clear,
+                store_op: vulkano::render_pass::AttachmentStoreOp::Store,
+                clear_value: Some([0.0, 0.0, 0.0, 1.0].into()),
+                ..vulkano::command_buffer::RenderingAttachmentInfo::image_view(
+                    render_context.image_views[image_index as usize].clone(),
+                )
+            })],
+            ..Default::default()
+        })
+        .map_err(|e| {
+            error::VulkanError::CommandBufferError(format!("Failed to begin rendering: {}", e))
+        })?
+        .set_viewport(
+            0,
+            vec![render_context.viewport.clone()].into_iter().collect(),
+        )
+        .map_err(|e| {
+            error::VulkanError::CommandBufferError(format!("Failed to set viewport: {}", e))
+        })?
+        .bind_pipeline_graphics(render_context.pipeline.clone())
+        .map_err(|e| {
+            error::VulkanError::CommandBufferError(format!(
+                "Failed to bind graphics pipeline: {}",
+                e
+            ))
+        })?.bind_vertex_buffers(0, scene);
+
+    Ok(())
+}
+
+pub fn recreate_swapchain(render_context: &mut RenderContext) -> Result<(), VulkanError> {
+    let new_window_size = render_context.window.inner_size();
+    let (new_swapchain, new_images) = render_context
+        .swapchain
+        .recreate(vulkano::swapchain::SwapchainCreateInfo {
+            image_extent: new_window_size.into(),
+            ..render_context.swapchain.create_info()
+        })
+        .map_err(|e| {
+            error::VulkanError::SwapchainError(format!("Failed to recreate swapchain: {}", e))
+        })?;
+
+    render_context.swapchain = new_swapchain;
+
+    render_context.image_views = new_images
+        .into_iter()
+        .filter_map(|image| {
+            vulkano::image::view::ImageView::new_default(image)
+                .map_err(|e| {
+                    error::VulkanError::SwapchainError(format!(
+                        "Failed to create image view: {}",
+                        e
+                    ))
+                })
+                .ok()
+        })
+        .collect::<Vec<_>>();
     Ok(())
 }
