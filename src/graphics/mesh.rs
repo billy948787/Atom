@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 #[derive(Debug, Clone)]
 pub struct Mesh {
     pub vertices: Vec<crate::graphics::vertex::Vertex>,
@@ -12,4 +14,3 @@ impl std::fmt::Display for Mesh {
 }
 
 pub struct SubMesh {}
-    

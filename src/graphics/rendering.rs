@@ -8,6 +8,7 @@ use std::{
 use vulkano::{
     buffer::BufferCreateInfo,
     image::ImageUsage,
+    memory::allocator::AllocationCreateInfo,
     pipeline::{
         DynamicState, GraphicsPipeline,
         graphics::{
@@ -38,6 +39,79 @@ pub struct RenderContext {
     pub previous_frame_end: Option<Box<dyn vulkano::sync::GpuFuture>>,
     pub image_views: Vec<Arc<vulkano::image::view::ImageView>>,
     pub recreate_swapchain: bool,
+}
+
+pub struct RenderableScene {
+    pub vertex_buffer: vulkano::buffer::Subbuffer<[crate::graphics::vertex::Vertex]>,
+    pub index_buffer: vulkano::buffer::Subbuffer<[u32]>,
+}
+
+impl RenderableScene {
+    pub fn from_scene(
+        scene: &scene::Scene,
+        memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
+    ) -> Result<Self, GraphicsError> {
+        // create two vec to hold all vertices and indices
+        // we need to merge all meshes in the scene into one vertex buffer and one index buffer
+        let mut all_vertices = Vec::new();
+        let mut all_indices = Vec::new();
+
+        for mesh in &scene.objects {
+            let vertex_offset = all_vertices.len() as u32;
+            all_vertices.extend_from_slice(&mesh.vertices);
+
+            all_indices.extend(mesh.indices.iter().map(|&index| index + vertex_offset));
+        }
+
+        if all_vertices.is_empty() || all_indices.is_empty() {
+            return Err(error::GraphicsError::NoMeshDataFound);
+        }
+
+        let vertex_buffer = vulkano::buffer::Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: vulkano::buffer::BufferUsage::VERTEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
+                    | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            all_vertices.into_iter(),
+        )
+        .map_err(|e| {
+            error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
+                "Failed to create vertex buffer: {}",
+                e
+            )))
+        })?;
+
+        let index_buffer = vulkano::buffer::Buffer::from_iter(
+            memory_allocator.clone(),
+            BufferCreateInfo {
+                usage: vulkano::buffer::BufferUsage::INDEX_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
+                    | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            all_indices.into_iter(),
+        )
+        .map_err(|e| {
+            error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
+                "Failed to create index buffer: {}",
+                e
+            )))
+        })?;
+
+        Ok(Self {
+            vertex_buffer: vertex_buffer,
+            index_buffer: index_buffer,
+        })
+    }
 }
 pub fn create_render_context(
     window: Arc<winit::window::Window>,
@@ -243,7 +317,7 @@ pub fn draw_scene(
         vulkano::command_buffer::allocator::StandardCommandBufferAllocator,
     >,
     queue: Arc<vulkano::device::Queue>,
-    scene: &scene::Scene,
+    renderable_scene: RenderableScene,
 ) -> Result<(), GraphicsError> {
     if render_context.recreate_swapchain {
         recreate_swapchain(render_context)?;
@@ -312,7 +386,70 @@ pub fn draw_scene(
                 "Failed to bind graphics pipeline: {}",
                 e
             ))
-        })?.bind_vertex_buffers(0, scene);
+        })?
+        .bind_vertex_buffers(0, renderable_scene.vertex_buffer.to_owned())
+        .map_err(|e| {
+            error::VulkanError::CommandBufferError(format!("Failed to bind vertex buffer: {}", e))
+        })?
+        .bind_index_buffer(renderable_scene.index_buffer.to_owned())
+        .map_err(|e| {
+            error::VulkanError::CommandBufferError(format!("Failed to bind index buffer: {}", e))
+        })?;
+
+    unsafe {
+        builder
+            .draw_indexed(renderable_scene.index_buffer.len() as u32, 1, 0, 0, 0)
+            .map_err(|e| {
+                error::VulkanError::CommandBufferError(format!("Failed to draw indexed: {}", e))
+            })?;
+    }
+
+    builder.end_rendering().map_err(|e| {
+        error::VulkanError::CommandBufferError(format!("Failed to end rendering: {}", e))
+    })?;
+
+    let command_buffer = builder.build().map_err(|e| {
+        error::VulkanError::CommandBufferError(format!("Failed to build command buffer: {}", e))
+    })?;
+
+    let future = render_context
+        .previous_frame_end
+        .take()
+        .unwrap_or_else(|| vulkano::sync::now(queue.device().clone()).boxed())
+        .join(acquire_future)
+        .then_execute(queue.clone(), command_buffer)
+        .map_err(|e| {
+            error::VulkanError::CommandBufferError(format!(
+                "Failed to execute command buffer: {}",
+                e
+            ))
+        })?
+        .then_swapchain_present(
+            queue.clone(),
+            vulkano::swapchain::SwapchainPresentInfo::swapchain_image_index(
+                render_context.swapchain.clone(),
+                image_index,
+            ),
+        )
+        .then_signal_fence_and_flush();
+
+    match future.map_err(vulkano::Validated::unwrap) {
+        Ok(future) => {
+            render_context.previous_frame_end = Some(future.boxed());
+        }
+        Err(vulkano::VulkanError::OutOfDate) => {
+            render_context.recreate_swapchain = true;
+            render_context.previous_frame_end =
+                Some(vulkano::sync::now(queue.device().clone()).boxed());
+        }
+        Err(e) => {
+            return Err(GraphicsError::from(VulkanError::SwapchainError(format!(
+                "Failed to flush future: {}",
+                e
+            ))));
+        }
+    }
+    // .bind_vertex_buffers(0, scene);
 
     Ok(())
 }

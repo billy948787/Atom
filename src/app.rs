@@ -105,6 +105,7 @@ impl App {
     ) {
         let mut device_extensions = vulkano::device::DeviceExtensions {
             khr_swapchain: true,
+            khr_dynamic_rendering: true,
             ..vulkano::device::DeviceExtensions::empty()
         };
 
@@ -125,6 +126,8 @@ impl App {
                     .iter()
                     .enumerate()
                     .filter(|(index, queue_family)| {
+                        println!("Queue family {}: {:?}", index, queue_family.queue_flags);
+
                         queue_family.queue_flags.intersects(QueueFlags::GRAPHICS)
                             && device
                                 .presentation_support(*index as u32, event_loop)
@@ -150,8 +153,6 @@ impl App {
         if suitable_device.api_version() < vulkano::Version::V1_3 {
             device_extensions.khr_dynamic_rendering = true;
         }
-
-        println!("{:?}", queue_family_indexs);
 
         let (device, queues) = vulkano::device::Device::new(
             suitable_device,
@@ -227,9 +228,13 @@ impl ApplicationHandler for App {
 
                 crate::graphics::rendering::draw_scene(
                     self.render_contexts.get_mut(&window_id).unwrap(),
-                    &self.scene,
                     self.command_buffer_allocator.clone(),
                     self.queue.clone(),
+                    crate::graphics::rendering::RenderableScene::from_scene(
+                        &self.scene,
+                        self.memory_allocator.clone(),
+                    )
+                    .unwrap(),
                 )
                 .unwrap();
             }
