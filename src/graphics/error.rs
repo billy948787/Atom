@@ -30,6 +30,9 @@ pub enum VulkanError {
 
     #[error("Vulkan pipeline creation error: {0}")]
     PipelineCreationError(String),
+
+    #[error("Buffer creation error: {0}")]
+    BufferCreationError(String),
 }
 #[derive(Error, Debug)]
 pub enum GraphicsError {
@@ -53,4 +56,7 @@ pub enum GraphicsError {
 
     #[error("Camera setup error: {0}")]
     CameraSetupError(String),
+
+    #[error("No mesh data found")]
+    NoMeshDataFound,
 }
