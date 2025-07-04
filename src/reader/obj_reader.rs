@@ -1,8 +1,6 @@
+use glam::{Vec2, Vec3};
+
 use crate::graphics::{self, vertex::Vertex};
-use crate::math::{
-    matrix::Matrix,
-    vector::{Vec2, Vec3},
-};
 use crate::reader::error::FileError;
 use std::fs::{self};
 
@@ -28,7 +26,7 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
     let mut mesh = graphics::mesh::Mesh {
         vertices: Vec::new(),
         indices: Vec::new(),
-        world_transform: Matrix::<f32>::default(4, 4),
+        world_transform: glam::Mat4::IDENTITY,
     };
     for line in file.lines() {
         if line.starts_with('#') || line.trim().is_empty() {
@@ -177,14 +175,13 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                         tex_coord,
                     };
 
-                    // Insert vertex into the hash map if it doesn't already exist
-                    if !hash_map.contains_key(&vertex) {
-                        hash_map.insert(vertex.clone(), hash_map.len() as u32);
+                    let index = hash_map.entry(vertex).or_insert_with(|| {
+                        let index = mesh.vertices.len() as u32;
                         mesh.vertices.push(vertex);
-                        mesh.indices.push(hash_map.len() as u32 - 1);
-                    } else {
-                        mesh.indices.push(*hash_map.get(&vertex).unwrap());
-                    }
+                        index
+                    });
+
+                    mesh.indices.push(*index);
                 }
             }
             // TODO: Handle material
@@ -192,7 +189,26 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
         }
     }
 
+    println!("vertices: {:?}", mesh.vertices);
+
+    mesh.normalize();
+
+    println!("normalized vertices: {:?}", mesh.vertices);
+
     scene.objects.push(mesh);
+
+    // check if camera exists
+    // if no camera exists, create a default camera
+    if scene.cameras.is_empty() {
+        scene.cameras.push(graphics::camera::Camera {
+            position: Vec3::new(0.0, 0.0, 5.0),
+            rotation: Vec3::new(0.0, 0.0, 0.0),
+            fov: 45.0,
+            near_plane: 0.1,
+            far_plane: 100.0,
+            look_at: Vec3::new(0.0, 0.0, 0.0),
+        });
+    }
 
     Ok(scene)
 }

@@ -1,20 +1,15 @@
-use std::{
-    collections::{HashMap, hash_map},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use vulkano::{
     device::{DeviceFeatures, QueueCreateInfo, QueueFlags},
     instance::{InstanceCreateFlags, InstanceCreateInfo},
-    pipeline::graphics,
-    sync::event,
 };
 use winit::{
     application::ApplicationHandler,
     event::KeyEvent,
     keyboard::{Key, NamedKey},
     raw_window_handle::HasDisplayHandle,
-    window::{self, WindowAttributes},
+    window::{self},
 };
 
 pub struct App {
@@ -54,7 +49,7 @@ impl App {
             ),
         );
 
-        let scene = crate::reader::obj_reader::read_file("test_model/cube.obj").unwrap();
+        let scene = crate::reader::obj_reader::read_file("test_model/Triangles.obj").unwrap();
 
         return App {
             instance,
@@ -105,7 +100,7 @@ impl App {
     ) {
         let mut device_extensions = vulkano::device::DeviceExtensions {
             khr_swapchain: true,
-            khr_dynamic_rendering: true,
+            // khr_dynamic_rendering: true,
             ..vulkano::device::DeviceExtensions::empty()
         };
 
@@ -197,7 +192,6 @@ impl ApplicationHandler for App {
                 Arc::new(window),
                 self.device.clone(),
                 self.instance.clone(),
-                self.memory_allocator.clone(),
             )
             .unwrap(),
         );
@@ -265,7 +259,6 @@ impl ApplicationHandler for App {
                         Arc::new(window),
                         self.device.clone(),
                         self.instance.clone(),
-                        self.memory_allocator.clone(),
                     )
                     .unwrap(),
                 );

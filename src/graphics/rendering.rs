@@ -1,16 +1,11 @@
-use std::{
-    collections::HashSet,
-    hash::Hash,
-    ops::{Deref, RangeInclusive},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use vulkano::{
     buffer::BufferCreateInfo,
     image::ImageUsage,
     memory::allocator::AllocationCreateInfo,
     pipeline::{
-        DynamicState, GraphicsPipeline,
+        DynamicState,
         graphics::{
             self, GraphicsPipelineCreateInfo,
             color_blend::ColorBlendAttachmentState,
@@ -117,7 +112,6 @@ pub fn create_render_context(
     window: Arc<winit::window::Window>,
     device: Arc<vulkano::device::Device>,
     instance: Arc<vulkano::instance::Instance>,
-    memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
 ) -> Result<RenderContext, crate::graphics::error::VulkanError> {
     let surface =
         vulkano::swapchain::Surface::from_window(instance, window.clone()).map_err(|e| {
@@ -449,7 +443,6 @@ pub fn draw_scene(
             ))));
         }
     }
-    // .bind_vertex_buffers(0, scene);
 
     Ok(())
 }
@@ -481,5 +474,7 @@ pub fn recreate_swapchain(render_context: &mut RenderContext) -> Result<(), Vulk
                 .ok()
         })
         .collect::<Vec<_>>();
+
+    render_context.viewport.extent = new_window_size.into();
     Ok(())
 }

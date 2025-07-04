@@ -1,7 +1,9 @@
 [package]
-name = "Atom"
+name = "atom"
 version = "0.1.0"
 edition = "2024"
+
+
 
 [dependencies]
 syn = "2.0.102"
@@ -11,3 +13,5 @@ winit = "0.30.11"
 vulkano = "0.35.0" 
 vulkano-shaders = "0.35.0"
 bytemuck = "1.23.1"
+atom_macros = { path = "atom_macros" }
+glam = { version = "0.30.4", features = ["bytemuck"] }
