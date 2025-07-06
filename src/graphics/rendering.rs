@@ -5,12 +5,9 @@ use vulkano::{
     image::ImageUsage,
     memory::allocator::AllocationCreateInfo,
     pipeline::{
-        DynamicState,
         graphics::{
-            self, GraphicsPipelineCreateInfo,
-            color_blend::ColorBlendAttachmentState,
-            vertex_input::{Vertex, VertexDefinition},
-        },
+            self, color_blend::ColorBlendAttachmentState, vertex_input::{Vertex, VertexDefinition}, GraphicsPipelineCreateInfo
+        }, layout::PipelineLayoutCreateInfo, DynamicState
     },
     swapchain::{Swapchain, SwapchainCreateInfo},
     sync::GpuFuture,
