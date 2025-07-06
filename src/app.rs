@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use vulkano::{
+    descriptor_set,
     device::{DeviceFeatures, QueueCreateInfo, QueueFlags},
     instance::{InstanceCreateFlags, InstanceCreateInfo},
 };
@@ -16,6 +17,8 @@ pub struct App {
     pub instance: Arc<vulkano::instance::Instance>,
     pub render_contexts:
         HashMap<winit::window::WindowId, crate::graphics::rendering::RenderContext>,
+    pub descriptor_set_allocator:
+        Arc<vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator>,
     pub queue: Arc<vulkano::device::Queue>,
     pub device: Arc<vulkano::device::Device>,
     pub command_buffer_allocator:
@@ -49,7 +52,14 @@ impl App {
             ),
         );
 
-        let scene = crate::reader::obj_reader::read_file("test_model/Triangles.obj").unwrap();
+        let descriptor_set_allocator = Arc::new(
+            vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator::new(
+                Arc::clone(&virtual_device),
+                Default::default(),
+            ),
+        );
+
+        let scene = crate::reader::obj_reader::read_file("test_model/Cube.obj").unwrap();
 
         return App {
             instance,
@@ -59,6 +69,7 @@ impl App {
             command_buffer_allocator,
             memory_allocator,
             scene,
+            descriptor_set_allocator,
         };
     }
 
@@ -220,13 +231,21 @@ impl ApplicationHandler for App {
             winit::event::WindowEvent::RedrawRequested => {
                 println!("Window redraw requested");
 
+                let aspect_ratio = {
+                    let render_context = self.render_contexts.get(&window_id).unwrap();
+                    let extent = render_context.window.inner_size();
+                    extent.width as f32 / extent.height as f32
+                };
+
                 crate::graphics::rendering::draw_scene(
                     self.render_contexts.get_mut(&window_id).unwrap(),
                     self.command_buffer_allocator.clone(),
+                    self.descriptor_set_allocator.clone(),
                     self.queue.clone(),
                     crate::graphics::rendering::RenderableScene::from_scene(
                         &self.scene,
                         self.memory_allocator.clone(),
+                        aspect_ratio,
                     )
                     .unwrap(),
                 )

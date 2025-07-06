@@ -2,12 +2,17 @@ use std::sync::Arc;
 
 use vulkano::{
     buffer::BufferCreateInfo,
+    descriptor_set::layout,
     image::ImageUsage,
     memory::allocator::AllocationCreateInfo,
     pipeline::{
+        DynamicState, Pipeline,
         graphics::{
-            self, color_blend::ColorBlendAttachmentState, vertex_input::{Vertex, VertexDefinition}, GraphicsPipelineCreateInfo
-        }, layout::PipelineLayoutCreateInfo, DynamicState
+            self, GraphicsPipelineCreateInfo,
+            color_blend::ColorBlendAttachmentState,
+            vertex_input::{Vertex, VertexDefinition},
+        },
+        layout::PipelineLayoutCreateInfo,
     },
     swapchain::{Swapchain, SwapchainCreateInfo},
     sync::GpuFuture,
@@ -18,11 +23,19 @@ use crate::graphics::{
     scene,
 };
 
-// fn draw(scene: &scene::Scene, render_context: &RenderContext) -> Result<(), GraphicsError> {
-//     let serface = vulkano::swapchain::Surface::from_window(instance, window)
-//     Ok(())
-// }
+pub mod vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        path: "src/graphics/shaders/vertex.glsl",
+    }
+}
 
+pub mod fs {
+    vulkano_shaders::shader! {
+            ty: "fragment",
+            path: "src/graphics/shaders/fragment.glsl",
+    }
+}
 pub struct RenderContext {
     pub window: Arc<winit::window::Window>,
     pub swapchain: Arc<vulkano::swapchain::Swapchain>,
@@ -33,36 +46,100 @@ pub struct RenderContext {
     pub recreate_swapchain: bool,
 }
 
-pub struct RenderableScene {
+pub struct RenderableObject {
     pub vertex_buffer: vulkano::buffer::Subbuffer<[crate::graphics::vertex::Vertex]>,
     pub index_buffer: vulkano::buffer::Subbuffer<[u32]>,
+    pub model_matrix: glam::Mat4,
+}
+
+pub struct RenderableScene {
+    pub objects: Vec<RenderableObject>,
+    pub uniform_buffer: vulkano::buffer::Subbuffer<vs::CameraUbo>,
 }
 
 impl RenderableScene {
     pub fn from_scene(
         scene: &scene::Scene,
         memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
+        aspect_ratio: f32,
     ) -> Result<Self, GraphicsError> {
         // create two vec to hold all vertices and indices
         // we need to merge all meshes in the scene into one vertex buffer and one index buffer
-        let mut all_vertices = Vec::new();
-        let mut all_indices = Vec::new();
+
+        let mut objects = Vec::new();
 
         for mesh in &scene.objects {
-            let vertex_offset = all_vertices.len() as u32;
-            all_vertices.extend_from_slice(&mesh.vertices);
+            if mesh.vertices.is_empty() || mesh.indices.is_empty() {
+                return Err(error::GraphicsError::NoMeshDataFound);
+            }
 
-            all_indices.extend(mesh.indices.iter().map(|&index| index + vertex_offset));
+            let vertex_buffer = vulkano::buffer::Buffer::from_iter(
+                memory_allocator.clone(),
+                BufferCreateInfo {
+                    usage: vulkano::buffer::BufferUsage::VERTEX_BUFFER,
+                    ..Default::default()
+                },
+                AllocationCreateInfo {
+                    memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
+                        | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                    ..Default::default()
+                },
+                mesh.vertices.iter().cloned(),
+            )
+            .map_err(|e| {
+                error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
+                    "Failed to create vertex buffer: {}",
+                    e
+                )))
+            })?;
+
+            let index_buffer = vulkano::buffer::Buffer::from_iter(
+                memory_allocator.clone(),
+                BufferCreateInfo {
+                    usage: vulkano::buffer::BufferUsage::INDEX_BUFFER,
+                    ..Default::default()
+                },
+                AllocationCreateInfo {
+                    memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
+                        | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                    ..Default::default()
+                },
+                mesh.indices.iter().cloned(),
+            )
+            .map_err(|e| {
+                error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
+                    "Failed to create index buffer: {}",
+                    e
+                )))
+            })?;
+
+            objects.push(RenderableObject {
+                vertex_buffer,
+                index_buffer,
+                model_matrix: mesh.world_transform,
+            });
         }
+        let projection_matrix = scene
+            .cameras
+            .get(scene.main_camera_index)
+            .ok_or_else(|| error::GraphicsError::NoCameraFound)?
+            .projection_matrix(aspect_ratio);
 
-        if all_vertices.is_empty() || all_indices.is_empty() {
-            return Err(error::GraphicsError::NoMeshDataFound);
-        }
+        let view_matrix = scene
+            .cameras
+            .get(scene.main_camera_index)
+            .ok_or_else(|| error::GraphicsError::NoCameraFound)?
+            .view_matrix();
 
-        let vertex_buffer = vulkano::buffer::Buffer::from_iter(
+        let ubo_data = vs::CameraUbo {
+            proj: projection_matrix.to_cols_array_2d(),
+            view: view_matrix.to_cols_array_2d(),
+        };
+
+        let uniform_buffer = vulkano::buffer::Buffer::from_data(
             memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: vulkano::buffer::BufferUsage::VERTEX_BUFFER,
+            vulkano::buffer::BufferCreateInfo {
+                usage: vulkano::buffer::BufferUsage::UNIFORM_BUFFER,
                 ..Default::default()
             },
             AllocationCreateInfo {
@@ -70,38 +147,17 @@ impl RenderableScene {
                     | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
-            all_vertices.into_iter(),
+            ubo_data,
         )
         .map_err(|e| {
             error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
-                "Failed to create vertex buffer: {}",
+                "Failed to create uniform buffer: {}",
                 e
             )))
         })?;
-
-        let index_buffer = vulkano::buffer::Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: vulkano::buffer::BufferUsage::INDEX_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
-                    | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            all_indices.into_iter(),
-        )
-        .map_err(|e| {
-            error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
-                "Failed to create index buffer: {}",
-                e
-            )))
-        })?;
-
         Ok(Self {
-            vertex_buffer: vertex_buffer,
-            index_buffer: index_buffer,
+            objects,
+            uniform_buffer,
         })
     }
 }
@@ -178,20 +234,6 @@ pub fn create_render_context(
         })
         .collect::<Vec<_>>();
 
-    mod vs {
-        vulkano_shaders::shader! {
-            ty: "vertex",
-            path: "src/graphics/shaders/triangle.vert",
-        }
-    }
-
-    mod fs {
-        vulkano_shaders::shader! {
-                ty: "fragment",
-                path: "src/graphics/shaders/triangle.frag",
-        }
-    }
-
     let pipeline = {
         let vs = vs::load(device.clone())
             .map_err(|e| {
@@ -235,13 +277,18 @@ pub fn create_render_context(
             vulkano::pipeline::PipelineShaderStageCreateInfo::new(fs),
         ];
 
-        let layout = vulkano::pipeline::PipelineLayout::new(
+        let pipeline_layout_create_info =
+            vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
+                .into_pipeline_layout_create_info(device.clone())
+                .map_err(|e| {
+                    error::VulkanError::PipelineLayoutError(format!(
+                        "Failed to create pipeline layout: {}",
+                        e
+                    ))
+                })?;
+        let layout = vulkano::pipeline::layout::PipelineLayout::new(
             device.clone(),
-            vulkano::pipeline::layout::PipelineLayoutCreateInfo {
-                set_layouts: vec![],
-                push_constant_ranges: vec![],
-                ..Default::default()
-            },
+            pipeline_layout_create_info,
         )
         .map_err(|e| {
             error::VulkanError::PipelineLayoutError(format!(
@@ -249,7 +296,6 @@ pub fn create_render_context(
                 e
             ))
         })?;
-
         let subpass = vulkano::pipeline::graphics::subpass::PipelineRenderingCreateInfo {
             color_attachment_formats: [Some(swapchain.image_format())].to_vec(),
             ..Default::default()
@@ -307,6 +353,9 @@ pub fn draw_scene(
     command_buffer_allocator: Arc<
         vulkano::command_buffer::allocator::StandardCommandBufferAllocator,
     >,
+    descriptor_set_allocator: Arc<
+        vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator,
+    >,
     queue: Arc<vulkano::device::Queue>,
     renderable_scene: RenderableScene,
 ) -> Result<(), GraphicsError> {
@@ -337,6 +386,28 @@ pub fn draw_scene(
         render_context.recreate_swapchain = true;
     }
 
+    let descriptor_set = vulkano::descriptor_set::DescriptorSet::new(
+        descriptor_set_allocator,
+        render_context
+            .pipeline
+            .layout()
+            .set_layouts()
+            .get(0)
+            .ok_or_else(|| {
+                error::VulkanError::PipelineLayoutError(
+                    "No descriptor set layout found in pipeline".to_string(),
+                )
+            })?
+            .clone(),
+        [vulkano::descriptor_set::WriteDescriptorSet::buffer(
+            0,
+            renderable_scene.uniform_buffer.clone(),
+        )],
+        [],
+    )
+    .map_err(|e| {
+        error::VulkanError::CommandBufferError(format!("Failed to create descriptor set: {}", e))
+    })?;
     let mut builder = vulkano::command_buffer::AutoCommandBufferBuilder::primary(
         command_buffer_allocator,
         queue.queue_family_index(),
@@ -378,21 +449,50 @@ pub fn draw_scene(
                 e
             ))
         })?
-        .bind_vertex_buffers(0, renderable_scene.vertex_buffer.to_owned())
+        .bind_descriptor_sets(
+            vulkano::pipeline::PipelineBindPoint::Graphics,
+            render_context.pipeline.layout().clone(),
+            0,
+            descriptor_set,
+        )
         .map_err(|e| {
-            error::VulkanError::CommandBufferError(format!("Failed to bind vertex buffer: {}", e))
-        })?
-        .bind_index_buffer(renderable_scene.index_buffer.to_owned())
-        .map_err(|e| {
-            error::VulkanError::CommandBufferError(format!("Failed to bind index buffer: {}", e))
+            error::VulkanError::CommandBufferError(format!("Failed to bind descriptor sets: {}", e))
         })?;
 
-    unsafe {
+    for object in &renderable_scene.objects {
         builder
-            .draw_indexed(renderable_scene.index_buffer.len() as u32, 1, 0, 0, 0)
+            .push_constants(
+                render_context.pipeline.layout().clone(),
+                0,
+                vs::PushConstants {
+                    model: object.model_matrix.to_cols_array_2d(),
+                },
+            )
             .map_err(|e| {
-                error::VulkanError::CommandBufferError(format!("Failed to draw indexed: {}", e))
+                error::VulkanError::CommandBufferError(format!("Failed to push constants: {}", e))
+            })?
+            .bind_vertex_buffers(0, object.vertex_buffer.clone())
+            .map_err(|e| {
+                error::VulkanError::CommandBufferError(format!(
+                    "Failed to bind vertex buffer: {}",
+                    e
+                ))
+            })?
+            .bind_index_buffer(object.index_buffer.clone())
+            .map_err(|e| {
+                error::VulkanError::CommandBufferError(format!(
+                    "Failed to bind index buffer: {}",
+                    e
+                ))
             })?;
+
+        unsafe {
+            builder
+                .draw_indexed(object.index_buffer.len() as u32, 1, 0, 0, 0)
+                .map_err(|e| {
+                    error::VulkanError::CommandBufferError(format!("Failed to draw indexed: {}", e))
+                })?;
+        }
     }
 
     builder.end_rendering().map_err(|e| {

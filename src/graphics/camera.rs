@@ -18,11 +18,11 @@ impl std::fmt::Display for Camera {
 }
 
 impl Camera {
-    pub fn get_view_matrix(&self) -> glam::Mat4 {
+    pub fn view_matrix(&self) -> glam::Mat4 {
         glam::Mat4::look_at_rh(self.position, self.look_at, self.up)
     }
 
-    pub fn get_projection_matrix(&self, aspect_ratio: f32) -> glam::Mat4 {
+    pub fn projection_matrix(&self, aspect_ratio: f32) -> glam::Mat4 {
         glam::Mat4::perspective_rh(
             self.fov.to_radians(),
             aspect_ratio,

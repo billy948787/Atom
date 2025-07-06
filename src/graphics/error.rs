@@ -59,4 +59,7 @@ pub enum GraphicsError {
 
     #[error("No mesh data found")]
     NoMeshDataFound,
+
+    #[error("No camera found")]
+    NoCameraFound,
 }

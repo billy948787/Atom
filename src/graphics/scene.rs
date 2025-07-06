@@ -4,6 +4,7 @@ pub struct Scene {
     pub objects: Vec<graphics::mesh::Mesh>,
     pub cameras: Vec<graphics::camera::Camera>,
     pub lights: Vec<graphics::light::Light>,
+    pub main_camera_index: usize,
 }
 
 impl Scene {
@@ -12,6 +13,7 @@ impl Scene {
             objects: Vec::new(),
             cameras: Vec::new(),
             lights: Vec::new(),
+            main_camera_index: 0,
         }
     }
 
