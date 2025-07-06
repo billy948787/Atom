@@ -309,7 +309,10 @@ pub fn create_render_context(
                 vertex_input_state: Some(vertex_input_state),
                 input_assembly_state: Some(graphics::input_assembly::InputAssemblyState::default()),
                 viewport_state: Some(graphics::viewport::ViewportState::default()),
-                rasterization_state: Some(graphics::rasterization::RasterizationState::default()),
+                rasterization_state: Some(graphics::rasterization::RasterizationState {
+                    cull_mode: graphics::rasterization::CullMode::None,
+                    ..Default::default()
+                }),
                 multisample_state: Some(graphics::multisample::MultisampleState::default()),
                 color_blend_state: Some(graphics::color_blend::ColorBlendState {
                     attachments: [ColorBlendAttachmentState::default()].to_vec(),
@@ -318,6 +321,7 @@ pub fn create_render_context(
 
                 dynamic_state: [DynamicState::Viewport].into_iter().collect(),
                 subpass: Some(subpass.into()),
+                depth_stencil_state: None,
                 ..GraphicsPipelineCreateInfo::layout(layout)
             },
         )

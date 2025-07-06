@@ -7,7 +7,6 @@ pub struct Camera {
     pub fov: f32, // Field of view in degrees
     pub near_plane: f32,
     pub far_plane: f32,
-    pub look_at: Vec3,
     pub up: Vec3, // Up vector for the camera
 }
 
@@ -19,7 +18,14 @@ impl std::fmt::Display for Camera {
 
 impl Camera {
     pub fn view_matrix(&self) -> glam::Mat4 {
-        glam::Mat4::look_at_rh(self.position, self.look_at, self.up)
+        let forward = Vec3::new(
+            self.rotation.y.cos() * self.rotation.x.sin(),
+            -self.rotation.x.cos(),
+            self.rotation.y.sin() * self.rotation.x.sin(),
+        )
+        .normalize();
+
+        glam::Mat4::look_at_rh(self.position, self.position + forward, self.up)
     }
 
     pub fn projection_matrix(&self, aspect_ratio: f32) -> glam::Mat4 {

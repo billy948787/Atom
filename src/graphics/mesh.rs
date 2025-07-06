@@ -24,25 +24,16 @@ impl Mesh {
         }
 
         let bbox_size = max_point - min_point;
-
+        let center = (min_point + max_point) / 2.0;
         let max_side_length = bbox_size.x.max(bbox_size.y).max(bbox_size.z);
 
-        for vertex in &mut self.vertices {
-            vertex.position = (vertex.position - min_point) / max_side_length;
+        if max_side_length == 0.0 {
+            // Avoid division by zero if all vertices are at the same point
+            return;
         }
 
-        min_point = Vec3::new(f32::MAX, f32::MAX, f32::MAX);
-        max_point = Vec3::new(f32::MIN, f32::MIN, f32::MIN);
-
-        for vertex in &self.vertices {
-            min_point = min_point.min(vertex.position);
-            max_point = max_point.max(vertex.position);
-        }
-
-        let center = (min_point + max_point) / 2.0;
-
         for vertex in &mut self.vertices {
-            vertex.position = vertex.position - center;
+            vertex.position = (vertex.position - center) / max_side_length;
         }
     }
 }

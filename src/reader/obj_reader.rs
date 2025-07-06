@@ -203,11 +203,10 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
         scene.cameras.push(graphics::camera::Camera {
             position: Vec3::new(0.0, 0.0, 5.0),
             rotation: Vec3::new(0.0, 0.0, 0.0),
-            fov: 45.0,
+            fov: 90.0,
             near_plane: 0.1,
             up: Vec3::new(0.0, 1.0, 0.0),
             far_plane: 100.0,
-            look_at: Vec3::new(0.0, 0.0, 0.0),
         });
     }
 

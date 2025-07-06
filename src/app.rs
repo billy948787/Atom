@@ -59,7 +59,7 @@ impl App {
             ),
         );
 
-        let scene = crate::reader::obj_reader::read_file("test_model/Cube.obj").unwrap();
+        let scene = crate::reader::obj_reader::read_file("test_model/Triangles.obj").unwrap();
 
         return App {
             instance,
@@ -251,36 +251,49 @@ impl ApplicationHandler for App {
                 )
                 .unwrap();
             }
-
             winit::event::WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        logical_key: Key::Named(NamedKey::Space),
-                        state: winit::event::ElementState::Pressed,
-                        ..
-                    },
-                ..
+                device_id,
+                event,
+                is_synthetic,
             } => {
-                let window = event_loop
-                    .create_window(
-                        window::Window::default_attributes()
-                            .with_title(
-                                "
-                    Atom Engine - New Window",
-                            )
-                            .with_resizable(true),
-                    )
-                    .unwrap();
+                let mut need_redraw = true;
+                match event.physical_key {
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyW) => {
+                        self.scene.cameras[0].position.z -= 0.1;
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyS) => {
+                        self.scene.cameras[0].position.z += 0.1;
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => {
+                        self.scene.cameras[0].position.x -= 0.1;
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => {
+                        self.scene.cameras[0].position.x += 0.1;
+                    }
+                    // rotate camera with arrow keys
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
+                        self.scene.cameras[0].rotation.x -= 0.1;
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
+                        self.scene.cameras[0].rotation.x += 0.1;
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                        self.scene.cameras[0].rotation.y -= 0.1;
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
+                        self.scene.cameras[0].rotation.y += 0.1;
+                    }
+                    _ => {
+                        need_redraw = false;
+                    }
+                }
 
-                self.render_contexts.insert(
-                    window.id(),
-                    crate::graphics::rendering::create_render_context(
-                        Arc::new(window),
-                        self.device.clone(),
-                        self.instance.clone(),
-                    )
-                    .unwrap(),
-                );
+                if need_redraw {
+                    if let Some(render_context) = self.render_contexts.get_mut(&window_id) {
+                        render_context.recreate_swapchain = true;
+                        render_context.window.request_redraw();
+                    }
+                }
             }
             _ => {}
         }
