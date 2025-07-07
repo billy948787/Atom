@@ -11,7 +11,6 @@ pub fn read_file(path: &str) -> Result<graphics::scene::Scene, FileError> {
 
     Ok(parse_file(&file)?)
 }
-
 fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
     // Parse the file content and populate the Scene
     let mut scene = graphics::scene::Scene::new();
@@ -28,14 +27,14 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
         indices: Vec::new(),
         world_transform: glam::Mat4::IDENTITY,
     };
-    for line in file.lines() {
-        if line.starts_with('#') || line.trim().is_empty() {
+    for (line_number, line) in file.lines().enumerate() {
+        if line.starts_with('#') || line.is_empty() {
             continue; // Skip comments and empty lines
         }
 
         let parts: Vec<&str> = line.split_whitespace().collect();
 
-        let line_number = file.lines().position(|l| l == line).unwrap_or(0) + 1;
+        let line_number = line_number + 1;
 
         match parts[0] {
             "v" => {
@@ -138,6 +137,7 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                         line_number,
                     ));
                 }
+                let mut face_vertex_indices: Vec<u32> = Vec::new();
                 for part in &parts[1..] {
                     let indices: Vec<usize> = part
                         .split('/')
@@ -181,7 +181,13 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                         index
                     });
 
-                    mesh.indices.push(*index);
+                    face_vertex_indices.push(*index);
+                }
+                let first_index = face_vertex_indices[0];
+                for i in 1..(face_vertex_indices.len() - 1) {
+                    mesh.indices.push(first_index);
+                    mesh.indices.push(face_vertex_indices[i]);
+                    mesh.indices.push(face_vertex_indices[i + 1]);
                 }
             }
             // TODO: Handle material
@@ -189,11 +195,11 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
         }
     }
 
-    println!("vertices: {:?}", mesh.vertices);
+    // println!("vertices: {:?}", mesh.vertices);
 
     mesh.normalize();
 
-    println!("normalized vertices: {:?}", mesh.vertices);
+    // println!("normalized vertices: {:?}", mesh.vertices);
 
     scene.objects.push(mesh);
 
@@ -201,13 +207,27 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
     // if no camera exists, create a default camera
     if scene.cameras.is_empty() {
         scene.cameras.push(graphics::camera::Camera {
-            position: Vec3::new(0.0, 0.0, 5.0),
+            position: Vec3::new(0.0, 0.0, 1.0),
             rotation: Vec3::new(0.0, 0.0, 0.0),
             fov: 90.0,
             near_plane: 0.1,
-            up: Vec3::new(0.0, 1.0, 0.0),
+            up: Vec3::new(0.0, -1.0, 0.0),
             far_plane: 100.0,
         });
+    }
+
+    // let camera look at object center
+    if let Some(camera) = scene.cameras.first_mut() {
+        let center = scene
+            .objects
+            .first_mut()
+            .expect("No objects in scene")
+            .vertices
+            .iter()
+            .fold(Vec3::ZERO, |acc, v| acc + v.position)
+            / scene.objects.first_mut().unwrap().vertices.len() as f32;
+        camera.position = center + Vec3::new(0.0, 0.0, 5.0);
+        camera.rotation = graphics::camera::Camera::direction_to_rotation(center - camera.position);
     }
 
     Ok(scene)

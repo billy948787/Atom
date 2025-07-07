@@ -310,7 +310,7 @@ pub fn create_render_context(
                 input_assembly_state: Some(graphics::input_assembly::InputAssemblyState::default()),
                 viewport_state: Some(graphics::viewport::ViewportState::default()),
                 rasterization_state: Some(graphics::rasterization::RasterizationState {
-                    cull_mode: graphics::rasterization::CullMode::None,
+                    cull_mode: graphics::rasterization::CullMode::Front,
                     ..Default::default()
                 }),
                 multisample_state: Some(graphics::multisample::MultisampleState::default()),

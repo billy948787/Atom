@@ -59,7 +59,7 @@ impl App {
             ),
         );
 
-        let scene = crate::reader::obj_reader::read_file("test_model/Triangles.obj").unwrap();
+        let scene = crate::reader::obj_reader::read_file("test_model/Bunny.obj").unwrap();
 
         return App {
             instance,

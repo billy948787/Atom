@@ -36,4 +36,14 @@ impl Camera {
             self.far_plane,
         )
     }
+
+    pub fn direction_to_rotation(direction: Vec3) -> Vec3 {
+        let dir = direction.normalize();
+
+        let pitch = (-dir.y).acos();
+
+        let yaw = dir.z.atan2(dir.x);
+
+        Vec3::new(pitch, yaw, 0.0)
+    }
 }
