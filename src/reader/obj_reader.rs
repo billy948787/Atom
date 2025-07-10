@@ -208,10 +208,10 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
     if scene.cameras.is_empty() {
         scene.cameras.push(graphics::camera::Camera {
             position: Vec3::new(0.0, 0.0, 1.0),
-            rotation: Vec3::new(0.0, 0.0, 0.0),
+            target: Vec3::new(0.0, 0.0, 0.0), // Look at the origin
+            up: Vec3::Y,                      // Set the up vector to Y axis
             fov: 90.0,
             near_plane: 0.1,
-            up: Vec3::new(0.0, -1.0, 0.0),
             far_plane: 100.0,
         });
     }
@@ -227,7 +227,7 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
             .fold(Vec3::ZERO, |acc, v| acc + v.position)
             / scene.objects.first_mut().unwrap().vertices.len() as f32;
         camera.position = center + Vec3::new(0.0, 0.0, 5.0);
-        camera.rotation = graphics::camera::Camera::direction_to_rotation(center - camera.position);
+        camera.target = (center - camera.position).normalize();
     }
 
     Ok(scene)

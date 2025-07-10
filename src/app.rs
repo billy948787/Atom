@@ -59,7 +59,7 @@ impl App {
             ),
         );
 
-        let scene = crate::reader::obj_reader::read_file("test_model/Bunny.obj").unwrap();
+        let scene = crate::reader::obj_reader::read_file("test_model/Cube.obj").unwrap();
 
         return App {
             instance,
@@ -270,19 +270,14 @@ impl ApplicationHandler for App {
                     winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => {
                         self.scene.cameras[0].position.x += 0.1;
                     }
-                    // rotate camera with arrow keys
-                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                        self.scene.cameras[0].rotation.x -= 0.1;
+                    // rotate camera
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyQ) => {
+                        self.scene.cameras[0].position.y -= 0.1;
                     }
-                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                        self.scene.cameras[0].rotation.x += 0.1;
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => {
+                        self.scene.cameras[0].position.y += 0.1;
                     }
-                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                        self.scene.cameras[0].rotation.y -= 0.1;
-                    }
-                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                        self.scene.cameras[0].rotation.y += 0.1;
-                    }
+
                     _ => {
                         need_redraw = false;
                     }

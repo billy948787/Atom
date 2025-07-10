@@ -3,3 +3,4 @@
 .vscode/
 Cargo.lock
 test_model/
+.DS_Store
