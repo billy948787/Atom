@@ -12,11 +12,13 @@ layout(set=0,binding=0)uniform CameraUbo{
     mat4 proj;
 }camera;
 
-layout(push_constant)uniform PushConstants{
-mat4 model;}push_constants;
+layout(set=0,binding=1)buffer ModelMatrices{
+    mat4 model[];
+}models;
 
 void main(){
-    gl_Position=camera.proj*camera.view*push_constants.model*vec4(position,1.);
+    mat4 model_matrix=models.model[gl_InstanceIndex];
+    gl_Position=camera.proj*camera.view*model_matrix*vec4(position,1.);
     v_position=position;
     v_normal=normal;
     v_tex_coord=tex_coord;

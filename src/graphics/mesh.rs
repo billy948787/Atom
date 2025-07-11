@@ -44,5 +44,5 @@ impl Mesh {
 pub struct SubMesh {
     pub vertices: Vec<crate::graphics::vertex::Vertex>,
     pub indices: Vec<u32>,
-    pub material: Option<crate::graphics::material::Material>,
+    pub material: crate::graphics::material::Material,
 }

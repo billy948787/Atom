@@ -1,5 +1,6 @@
 use glam::{Vec2, Vec3};
 
+use crate::graphics::material::Material;
 use crate::graphics::{self, vertex::Vertex};
 use crate::reader::error::FileError;
 use std::collections::HashMap;
@@ -24,10 +25,11 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
     let mut tex_coords = std::vec::Vec::<Vec2>::new();
 
     let mut mesh = graphics::mesh::Mesh {
-        vertices: Vec::new(),
-        indices: Vec::new(),
+        submeshes: Vec::new(),
         world_transform: glam::Mat4::IDENTITY,
     };
+
+    let mut material_map: HashMap<String, graphics::material::Material> = HashMap::new();
     for (line_number, line) in file.lines().enumerate() {
         if line.starts_with('#') || line.is_empty() {
             continue; // Skip comments and empty lines
@@ -139,6 +141,20 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
                     ));
                 }
                 let mut face_vertex_indices: Vec<u32> = Vec::new();
+                // get submesh from previous created from usemtl
+
+                // get last submesh
+                let last_submesh = match mesh.submeshes.last_mut() {
+                    Some(submesh) => submesh,
+                    None => {
+                        mesh.submeshes.push(graphics::mesh::SubMesh {
+                            vertices: Vec::new(),
+                            indices: Vec::new(),
+                            material: Material::default(),
+                        });
+                        mesh.submeshes.last_mut().unwrap()
+                    }
+                };
                 for part in &parts[1..] {
                     let indices: Vec<usize> = part
                         .split('/')
@@ -177,8 +193,8 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
                     };
 
                     let index = hash_map.entry(vertex).or_insert_with(|| {
-                        let index = mesh.vertices.len() as u32;
-                        mesh.vertices.push(vertex);
+                        let index = last_submesh.vertices.len() as u32;
+                        last_submesh.vertices.push(vertex);
                         index
                     });
 
@@ -186,14 +202,56 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
                 }
                 let first_index = face_vertex_indices[0];
                 for i in 1..(face_vertex_indices.len() - 1) {
-                    mesh.indices.push(first_index);
-                    mesh.indices.push(face_vertex_indices[i]);
-                    mesh.indices.push(face_vertex_indices[i + 1]);
+                    last_submesh.indices.push(first_index);
+                    last_submesh.indices.push(face_vertex_indices[i]);
+                    last_submesh.indices.push(face_vertex_indices[i + 1]);
                 }
             }
-            // TODO: Handle material
-            "mtllib" => {}
+            "mtllib" => {
+                if parts.len() < 2 {
+                    return Err(FileError::FormatError(
+                        "Invalid material library".to_string(),
+                        crate::reader::FileType::Obj,
+                        line_number,
+                    ));
+                }
+                // create path to mtl file
 
+                let mtl_path = format!("{}/{}", path.rsplit('/').next().unwrap(), parts[1]);
+                match parse_mtl_file(&mtl_path) {
+                    Ok(materials) => {
+                        material_map.extend(materials);
+                    }
+                    Err(e) => {}
+                }
+            }
+            "usemtl" => {
+                if parts.len() < 2 {
+                    return Err(FileError::FormatError(
+                        "Invalid material name".to_string(),
+                        crate::reader::FileType::Obj,
+                        line_number,
+                    ));
+                }
+                let material_name = parts[1].to_string();
+
+                // Check if the material exists in the map
+                if let Some(material) = material_map.get(&material_name) {
+                    // Create a submesh with the current vertices and indices
+                    mesh.submeshes.push(graphics::mesh::SubMesh {
+                        vertices: Vec::new(),
+                        indices: Vec::new(),
+                        material: material.clone(),
+                    });
+                } else {
+                    // Material not found, create a default submesh
+                    mesh.submeshes.push(graphics::mesh::SubMesh {
+                        vertices: Vec::new(),
+                        indices: Vec::new(),
+                        material: Material::default(),
+                    });
+                }
+            }
             _ => {}
         }
     }
@@ -221,10 +279,12 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
             .objects
             .first_mut()
             .expect("No objects in scene")
-            .vertices
+            .submeshes
             .iter()
-            .fold(Vec3::ZERO, |acc, v| acc + v.position)
-            / scene.objects.first_mut().unwrap().vertices.len() as f32;
+            .flat_map(|submesh| submesh.vertices.iter())
+            .map(|v| v.position)
+            .fold(Vec3::ZERO, |acc, v| acc + v)
+            / scene.objects.first_mut().unwrap().submeshes.len() as f32;
         camera.position = center + Vec3::new(0.0, 0.0, 5.0);
         camera.target = (center - camera.position).normalize();
     }
