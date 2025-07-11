@@ -271,11 +271,19 @@ impl ApplicationHandler for App {
                         self.scene.cameras[0].position.x += 0.1;
                     }
                     // rotate camera
-                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyQ) => {
-                        self.scene.cameras[0].position.y -= 0.1;
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
+                        self.scene.cameras[0].rotate(glam::Vec3::new(0.0, -0.1, 0.0));
                     }
-                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => {
-                        self.scene.cameras[0].position.y += 0.1;
+
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                        self.scene.cameras[0].rotate(glam::Vec3::new(0.0, 0.1, 0.0));
+                    }
+
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
+                        self.scene.cameras[0].rotate(glam::Vec3::new(-0.1, 0.0, 0.0));
+                    }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
+                        self.scene.cameras[0].rotate(glam::Vec3::new(0.1, 0.0, 0.0));
                     }
 
                     _ => {

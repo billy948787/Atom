@@ -6,3 +6,4 @@ pub mod scene;
 pub mod vertex;
 pub mod error;
 pub mod backend;
+pub mod material;

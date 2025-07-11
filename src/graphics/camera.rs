@@ -29,4 +29,13 @@ impl Camera {
             self.far_plane,
         )
     }
+
+    pub fn rotate(&mut self, rotation: Vec3) {
+        // Update the camera's target based on the rotation
+        let direction = (self.target - self.position).normalize();
+        let rotated_direction =
+            glam::Quat::from_euler(glam::EulerRot::YXZ, rotation.y, rotation.x, rotation.z)
+                * direction;
+        self.target = self.position + rotated_direction;
+    }
 }

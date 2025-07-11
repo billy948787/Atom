@@ -2,8 +2,7 @@ use glam::Vec3;
 
 #[derive(Debug, Clone)]
 pub struct Mesh {
-    pub vertices: Vec<crate::graphics::vertex::Vertex>,
-    pub indices: Vec<u32>,
+    pub submeshes: Vec<SubMesh>,
     pub world_transform: glam::Mat4,
 }
 
@@ -18,9 +17,11 @@ impl Mesh {
         let mut min_point = Vec3::new(f32::MAX, f32::MAX, f32::MAX);
         let mut max_point = Vec3::new(f32::MIN, f32::MIN, f32::MIN);
 
-        for vertex in &self.vertices {
-            min_point = min_point.min(vertex.position);
-            max_point = max_point.max(vertex.position);
+        for submesh in &self.submeshes {
+            for vertex in &submesh.vertices {
+                min_point = min_point.min(vertex.position);
+                max_point = max_point.max(vertex.position);
+            }
         }
 
         let bbox_size = max_point - min_point;
@@ -32,10 +33,16 @@ impl Mesh {
             return;
         }
 
-        for vertex in &mut self.vertices {
-            vertex.position = (vertex.position - center) / max_side_length;
+        for submesh in &mut self.submeshes {
+            for vertex in &mut submesh.vertices {
+                vertex.position = (vertex.position - center) / max_side_length;
+            }
         }
     }
 }
-
-pub struct SubMesh {}
+#[derive(Debug, Clone)]
+pub struct SubMesh {
+    pub vertices: Vec<crate::graphics::vertex::Vertex>,
+    pub indices: Vec<u32>,
+    pub material: Option<crate::graphics::material::Material>,
+}

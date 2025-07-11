@@ -46,15 +46,12 @@ pub struct RenderContext {
     pub recreate_swapchain: bool,
 }
 
-pub struct RenderableObject {
+pub struct RenderableScene {
     pub vertex_buffer: vulkano::buffer::Subbuffer<[crate::graphics::vertex::Vertex]>,
     pub index_buffer: vulkano::buffer::Subbuffer<[u32]>,
-    pub model_matrix: glam::Mat4,
-}
-
-pub struct RenderableScene {
-    pub objects: Vec<RenderableObject>,
     pub uniform_buffer: vulkano::buffer::Subbuffer<vs::CameraUbo>,
+    pub indirect_buffer:
+        vulkano::buffer::Subbuffer<[vulkano::command_buffer::DrawIndexedIndirectCommand]>,
 }
 
 impl RenderableScene {
@@ -65,8 +62,10 @@ impl RenderableScene {
     ) -> Result<Self, GraphicsError> {
         // create two vec to hold all vertices and indices
         // we need to merge all meshes in the scene into one vertex buffer and one index buffer
-
-        let mut objects = Vec::new();
+        let mut all_vertices = Vec::new();
+        let mut all_indices = Vec::new();
+        let mut model_matrices = Vec::new();
+        let mut indirect_commands = Vec::new();
 
         for mesh in &scene.objects {
             if mesh.vertices.is_empty() || mesh.indices.is_empty() {
@@ -286,6 +285,11 @@ pub fn create_render_context(
                         e
                     ))
                 })?;
+
+        println!(
+            "Pipeline layout create info: {:?}",
+            pipeline_layout_create_info
+        );
         let layout = vulkano::pipeline::layout::PipelineLayout::new(
             device.clone(),
             pipeline_layout_create_info,

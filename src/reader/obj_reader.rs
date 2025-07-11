@@ -2,6 +2,7 @@ use glam::{Vec2, Vec3};
 
 use crate::graphics::{self, vertex::Vertex};
 use crate::reader::error::FileError;
+use std::collections::HashMap;
 use std::fs::{self};
 
 pub fn read_file(path: &str) -> Result<graphics::scene::Scene, FileError> {
@@ -9,9 +10,9 @@ pub fn read_file(path: &str) -> Result<graphics::scene::Scene, FileError> {
 
     let file = fs::read_to_string(path).map_err(|e| FileError::IoError(e))?;
 
-    Ok(parse_file(&file)?)
+    Ok(parse_file(path, &file)?)
 }
-fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
+fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileError> {
     // Parse the file content and populate the Scene
     let mut scene = graphics::scene::Scene::new();
 
@@ -191,15 +192,13 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
                 }
             }
             // TODO: Handle material
+            "mtllib" => {}
+
             _ => {}
         }
     }
 
-    // println!("vertices: {:?}", mesh.vertices);
-
     mesh.normalize();
-
-    // println!("normalized vertices: {:?}", mesh.vertices);
 
     scene.objects.push(mesh);
 
@@ -231,4 +230,98 @@ fn parse_file(file: &str) -> Result<graphics::scene::Scene, FileError> {
     }
 
     Ok(scene)
+}
+
+fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Material>, FileError> {
+    let file = fs::read_to_string(path).map_err(|e| FileError::IoError(e))?;
+    let mut current_material: Option<graphics::material::Material> = Option::None;
+    let mut materials = HashMap::new();
+
+    for (line_index, line) in file.lines().enumerate() {
+        let line_number = line_index + 1;
+        let parts = line.split_whitespace().collect::<Vec<&str>>();
+        if line.starts_with("#") || line.is_empty() {
+            continue;
+        }
+
+        match parts[0] {
+            "newmtl" => {
+                // Start a new material
+                if let Some(material) = current_material.take() {
+                    materials.insert(material.name.clone(), material);
+                }
+                if parts.len() < 2 {
+                    return Err(FileError::FormatError(
+                        "Invalid material name".to_string(),
+                        crate::reader::FileType::Mtl,
+                        line_number,
+                    ));
+                }
+                current_material = Some(graphics::material::Material {
+                    name: parts[1].to_string(),
+                    diffuse_color: Vec3::ZERO,
+                    specular_color: Vec3::ZERO,
+                    ambient_color: Vec3::ZERO,
+                });
+            }
+
+            "Ka" => {
+                // Ambient color
+                if parts.len() < 4 {
+                    return Err(FileError::FormatError(
+                        "Invalid ambient color".to_string(),
+                        crate::reader::FileType::Mtl,
+                        line_number,
+                    ));
+                }
+                if let Some(material) = &mut current_material {
+                    material.ambient_color = Vec3 {
+                        x: parts[1].parse().unwrap_or(0.0),
+                        y: parts[2].parse().unwrap_or(0.0),
+                        z: parts[3].parse().unwrap_or(0.0),
+                    };
+                }
+            }
+
+            "Kd" => {
+                // Diffuse color
+                if parts.len() < 4 {
+                    return Err(FileError::FormatError(
+                        "Invalid diffuse color".to_string(),
+                        crate::reader::FileType::Mtl,
+                        line_number,
+                    ));
+                }
+                if let Some(material) = &mut current_material {
+                    material.diffuse_color = Vec3 {
+                        x: parts[1].parse().unwrap_or(0.0),
+                        y: parts[2].parse().unwrap_or(0.0),
+                        z: parts[3].parse().unwrap_or(0.0),
+                    };
+                }
+            }
+
+            "Ks" => {
+                // Specular color
+                if parts.len() < 4 {
+                    return Err(FileError::FormatError(
+                        "Invalid specular color".to_string(),
+                        crate::reader::FileType::Mtl,
+                        line_number,
+                    ));
+                }
+                if let Some(material) = &mut current_material {
+                    material.specular_color = Vec3 {
+                        x: parts[1].parse().unwrap_or(0.0),
+                        y: parts[2].parse().unwrap_or(0.0),
+                        z: parts[3].parse().unwrap_or(0.0),
+                    };
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    Ok(materials)
 }
