@@ -1,4 +1,5 @@
-#version 450
+#version 460
+#extension GL_ARB_shader_draw_parameters:enable
 layout(location=0)in vec3 position;
 layout(location=1)in vec3 normal;
 layout(location=2)in vec2 tex_coord;
@@ -6,6 +7,7 @@ layout(location=2)in vec2 tex_coord;
 layout(location=0)out vec3 v_position;
 layout(location=1)out vec3 v_normal;
 layout(location=2)out vec2 v_tex_coord;
+layout(location=3)out flat int v_draw_id;
 
 layout(set=0,binding=0)uniform CameraUbo{
     mat4 view;
@@ -22,4 +24,5 @@ void main(){
     v_position=position;
     v_normal=normal;
     v_tex_coord=tex_coord;
+    v_draw_id=gl_DrawID;
 }

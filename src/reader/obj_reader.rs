@@ -217,12 +217,20 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
                 }
                 // create path to mtl file
 
-                let mtl_path = format!("{}/{}", path.rsplit('/').next().unwrap(), parts[1]);
+                let mtl_path = format! {
+                    "{}/{}",
+                    path.rfind('/')
+                        .map_or("", |i| &path[..i]),
+                    parts[1]
+                };
+                println!("Loading MTL file: {}", mtl_path);
                 match parse_mtl_file(&mtl_path) {
                     Ok(materials) => {
                         material_map.extend(materials);
                     }
-                    Err(e) => {}
+                    Err(_) => {
+                        println!("Failed to load MTL file: {}", mtl_path);
+                    }
                 }
             }
             "usemtl" => {
@@ -275,18 +283,24 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
 
     // let camera look at object center
     if let Some(camera) = scene.cameras.first_mut() {
-        let center = scene
-            .objects
-            .first_mut()
-            .expect("No objects in scene")
-            .submeshes
-            .iter()
-            .flat_map(|submesh| submesh.vertices.iter())
-            .map(|v| v.position)
-            .fold(Vec3::ZERO, |acc, v| acc + v)
-            / scene.objects.first_mut().unwrap().submeshes.len() as f32;
-        camera.position = center + Vec3::new(0.0, 0.0, 5.0);
-        camera.target = (center - camera.position).normalize();
+        // Get the first object immutably, as we only need to read vertex data.
+        if let Some(first_object) = scene.objects.first() {
+            let all_vertices: Vec<Vec3> = first_object
+                .submeshes
+                .iter()
+                .flat_map(|submesh| submesh.vertices.iter().map(|v| v.position))
+                .collect();
+
+            if !all_vertices.is_empty() {
+                let total_vertices = all_vertices.len() as f32;
+                let sum_of_positions = all_vertices.into_iter().fold(Vec3::ZERO, |acc, v| acc + v);
+                let center = sum_of_positions / total_vertices;
+
+                // Position the camera slightly away from the center and make it look at the center.
+                camera.position = center + Vec3::new(0.0, 0.0, 5.0);
+                camera.target = center; // The target is the center of the object.
+            }
+        }
     }
 
     Ok(scene)
@@ -382,6 +396,10 @@ fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Mate
             _ => {}
         }
     }
-
+    // Insert the last material if it exists
+    if let Some(material) = current_material {
+        materials.insert(material.name.clone(), material);
+    }
+    println!("materials: {:#?}", materials);
     Ok(materials)
 }

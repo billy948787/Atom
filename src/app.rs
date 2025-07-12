@@ -59,7 +59,7 @@ impl App {
             ),
         );
 
-        let scene = crate::reader::obj_reader::read_file("test_model/Cube.obj").unwrap();
+        let scene = crate::reader::obj_reader::read_file("test_model/Koffing/Koffing.obj").unwrap();
 
         return App {
             instance,
@@ -173,6 +173,8 @@ impl App {
                     .collect::<Vec<_>>(),
                 enabled_features: DeviceFeatures {
                     dynamic_rendering: true,
+                    multi_draw_indirect: true,
+                    shader_draw_parameters: true,
                     ..DeviceFeatures::empty()
                 },
                 ..Default::default()
@@ -229,8 +231,6 @@ impl ApplicationHandler for App {
                 }
             }
             winit::event::WindowEvent::RedrawRequested => {
-                println!("Window redraw requested");
-
                 let aspect_ratio = {
                     let render_context = self.render_contexts.get(&window_id).unwrap();
                     let extent = render_context.window.inner_size();

@@ -53,6 +53,7 @@ pub struct RenderableScene {
     pub matrix_buffer: vulkano::buffer::Subbuffer<[glam::Mat4]>,
     pub indirect_buffer:
         vulkano::buffer::Subbuffer<[vulkano::command_buffer::DrawIndexedIndirectCommand]>,
+    pub material_buffer: vulkano::buffer::Subbuffer<[crate::graphics::material::GpuMaterial]>,
 }
 
 impl RenderableScene {
@@ -68,6 +69,7 @@ impl RenderableScene {
         let mut indirect_commands = Vec::new();
         let mut instance_id = 0;
         let mut model_matrices = Vec::new();
+        let mut materials = Vec::new();
 
         for mesh in &scene.objects {
             model_matrices.push(mesh.world_transform);
@@ -91,6 +93,7 @@ impl RenderableScene {
                     first_instance: instance_id,
                 };
                 indirect_commands.push(command);
+                materials.push(submesh.material.clone());
             }
             instance_id += 1;
         }
@@ -210,12 +213,33 @@ impl RenderableScene {
                 e
             )))
         })?;
+
+        let material_buffer = vulkano::buffer::Buffer::from_iter(
+            memory_allocator.clone(),
+            vulkano::buffer::BufferCreateInfo {
+                usage: vulkano::buffer::BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
+                    | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            materials.into_iter().map(|m| m.into()).collect::<Vec<_>>(),
+        )
+        .map_err(|e| {
+            error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
+                "Failed to create material buffer: {}",
+                e
+            )))
+        })?;
         Ok(Self {
             vertex_buffer,
             index_buffer,
             uniform_buffer,
             indirect_buffer,
             matrix_buffer,
+            material_buffer,
         })
     }
 }
@@ -474,6 +498,10 @@ pub fn draw_scene(
             vulkano::descriptor_set::WriteDescriptorSet::buffer(
                 1,
                 renderable_scene.matrix_buffer.clone(),
+            ),
+            vulkano::descriptor_set::WriteDescriptorSet::buffer(
+                2,
+                renderable_scene.material_buffer.clone(),
             ),
         ],
         [],
