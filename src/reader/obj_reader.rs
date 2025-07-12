@@ -303,6 +303,8 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
         }
     }
 
+    if scene.lights.is_empty() {}
+
     Ok(scene)
 }
 

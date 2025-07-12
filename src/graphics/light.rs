@@ -1,3 +1,9 @@
+enum LightType {
+    Point,
+    Directional,
+    Spot,
+}
+
 #[derive(Debug, Clone)]
 pub struct Light {
     pub position: [f32; 3],

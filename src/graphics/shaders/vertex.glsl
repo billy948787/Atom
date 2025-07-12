@@ -18,11 +18,16 @@ layout(set=0,binding=1)buffer ModelMatrices{
     mat4 model[];
 }models;
 
+layout(set=0,binding=3)buffer NormalMatrices{
+    mat4 normal[];
+}normals;
+
 void main(){
     mat4 model_matrix=models.model[gl_InstanceIndex];
+    mat4 normal_matrix=normals.normal[gl_InstanceIndex];
     gl_Position=camera.proj*camera.view*model_matrix*vec4(position,1.);
     v_position=position;
-    v_normal=normal;
+    v_normal=normalize(mat3(normal_matrix)*normal);
     v_tex_coord=tex_coord;
     v_draw_id=gl_DrawID;
 }

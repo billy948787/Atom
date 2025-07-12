@@ -20,5 +20,9 @@ layout(set=0,binding=2)buffer MaterialBuffer{
 void main(){
     Material mat=material_buffer.materials[v_draw_id];
     
-    color=vec4(mat.diffuse_color,1.);
+    // simple lighting calculation
+    vec3 light_dir=normalize(vec3(1.,1.,1.));
+    float diff=dot(v_normal,light_dir);
+    
+    color=vec4(mat.diffuse_color*diff,1.);
 }

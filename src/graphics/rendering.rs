@@ -51,6 +51,7 @@ pub struct RenderableScene {
     pub index_buffer: vulkano::buffer::Subbuffer<[u32]>,
     pub uniform_buffer: vulkano::buffer::Subbuffer<vs::CameraUbo>,
     pub matrix_buffer: vulkano::buffer::Subbuffer<[glam::Mat4]>,
+    pub normal_buffer: vulkano::buffer::Subbuffer<[glam::Mat4]>,
     pub indirect_buffer:
         vulkano::buffer::Subbuffer<[vulkano::command_buffer::DrawIndexedIndirectCommand]>,
     pub material_buffer: vulkano::buffer::Subbuffer<[crate::graphics::material::GpuMaterial]>,
@@ -69,10 +70,19 @@ impl RenderableScene {
         let mut indirect_commands = Vec::new();
         let mut instance_id = 0;
         let mut model_matrices = Vec::new();
+        let mut normal_matrices = Vec::new();
         let mut materials = Vec::new();
+
+        let view_matrix = scene
+            .cameras
+            .get(scene.main_camera_index)
+            .ok_or_else(|| error::GraphicsError::NoCameraFound)?
+            .view_matrix();
 
         for mesh in &scene.objects {
             model_matrices.push(mesh.world_transform);
+            normal_matrices.push((view_matrix * mesh.world_transform).inverse().transpose());
+
             for submesh in &mesh.submeshes {
                 if submesh.vertices.is_empty() || submesh.indices.is_empty() {
                     continue; // Skip empty submeshes
@@ -233,6 +243,26 @@ impl RenderableScene {
                 e
             )))
         })?;
+
+        let normal_buffer = vulkano::buffer::Buffer::from_iter(
+            memory_allocator.clone(),
+            vulkano::buffer::BufferCreateInfo {
+                usage: vulkano::buffer::BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            AllocationCreateInfo {
+                memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
+                    | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            normal_matrices.into_iter(),
+        )
+        .map_err(|e| {
+            error::GraphicsError::from(error::VulkanError::BufferCreationError(format!(
+                "Failed to create normal buffer: {}",
+                e
+            )))
+        })?;
         Ok(Self {
             vertex_buffer,
             index_buffer,
@@ -240,6 +270,7 @@ impl RenderableScene {
             indirect_buffer,
             matrix_buffer,
             material_buffer,
+            normal_buffer,
         })
     }
 }
@@ -398,6 +429,7 @@ pub fn create_render_context(
                 viewport_state: Some(graphics::viewport::ViewportState::default()),
                 rasterization_state: Some(graphics::rasterization::RasterizationState {
                     cull_mode: graphics::rasterization::CullMode::Back,
+                    front_face: graphics::rasterization::FrontFace::Clockwise,
                     ..Default::default()
                 }),
                 multisample_state: Some(graphics::multisample::MultisampleState::default()),
@@ -502,6 +534,10 @@ pub fn draw_scene(
             vulkano::descriptor_set::WriteDescriptorSet::buffer(
                 2,
                 renderable_scene.material_buffer.clone(),
+            ),
+            vulkano::descriptor_set::WriteDescriptorSet::buffer(
+                3,
+                renderable_scene.normal_buffer.clone(),
             ),
         ],
         [],
