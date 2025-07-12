@@ -242,6 +242,7 @@ impl ApplicationHandler for App {
                     self.render_contexts.get_mut(&window_id).unwrap(),
                     self.command_buffer_allocator.clone(),
                     self.descriptor_set_allocator.clone(),
+                    self.memory_allocator.clone(),
                     self.queue.clone(),
                     crate::graphics::rendering::RenderableScene::from_scene(
                         &self.scene,

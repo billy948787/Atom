@@ -4,7 +4,7 @@ use vulkano::{
     buffer::{Buffer, BufferCreateInfo},
     descriptor_set::layout,
     image::ImageUsage,
-    memory::allocator::AllocationCreateInfo,
+    memory::{self, allocator::AllocationCreateInfo},
     pipeline::{
         DynamicState, Pipeline,
         graphics::{
@@ -493,11 +493,12 @@ pub fn draw_scene(
     descriptor_set_allocator: Arc<
         vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator,
     >,
+    memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
     queue: Arc<vulkano::device::Queue>,
     renderable_scene: RenderableScene,
 ) -> Result<(), GraphicsError> {
     if render_context.recreate_swapchain {
-        recreate_swapchain(render_context)?;
+        recreate_swapchain(render_context, memory_allocator.clone())?;
         render_context.recreate_swapchain = false;
     }
     let (image_index, suboptimal, acquire_future) =
@@ -686,7 +687,10 @@ pub fn draw_scene(
     Ok(())
 }
 
-pub fn recreate_swapchain(render_context: &mut RenderContext) -> Result<(), VulkanError> {
+pub fn recreate_swapchain(
+    render_context: &mut RenderContext,
+    memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
+) -> Result<(), VulkanError> {
     let new_window_size = render_context.window.inner_size();
     let (new_swapchain, new_images) = render_context
         .swapchain
@@ -715,6 +719,11 @@ pub fn recreate_swapchain(render_context: &mut RenderContext) -> Result<(), Vulk
         .collect::<Vec<_>>();
 
     render_context.viewport.extent = new_window_size.into();
+
+    render_context.depth_buffer = create_depth_buffer(
+        memory_allocator.clone(),
+        [new_window_size.width, new_window_size.height],
+    )?;
     Ok(())
 }
 
