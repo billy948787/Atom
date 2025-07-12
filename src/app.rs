@@ -205,6 +205,7 @@ impl ApplicationHandler for App {
                 Arc::new(window),
                 self.device.clone(),
                 self.instance.clone(),
+                self.memory_allocator.clone(),
             )
             .unwrap(),
         );

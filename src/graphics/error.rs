@@ -33,6 +33,12 @@ pub enum VulkanError {
 
     #[error("Buffer creation error: {0}")]
     BufferCreationError(String),
+
+    #[error("Image creation error: {0}")]
+    ImageCreationError(String),
+
+    #[error("Image view creation error: {0}")]
+    ImageViewCreationError(String),
 }
 #[derive(Error, Debug)]
 pub enum GraphicsError {

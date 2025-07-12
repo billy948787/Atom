@@ -44,6 +44,7 @@ pub struct RenderContext {
     pub previous_frame_end: Option<Box<dyn vulkano::sync::GpuFuture>>,
     pub image_views: Vec<Arc<vulkano::image::view::ImageView>>,
     pub recreate_swapchain: bool,
+    pub depth_buffer: Arc<vulkano::image::view::ImageView>,
 }
 
 pub struct RenderableScene {
@@ -278,6 +279,7 @@ pub fn create_render_context(
     window: Arc<winit::window::Window>,
     device: Arc<vulkano::device::Device>,
     instance: Arc<vulkano::instance::Instance>,
+    memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
 ) -> Result<RenderContext, crate::graphics::error::VulkanError> {
     let surface =
         vulkano::swapchain::Surface::from_window(instance, window.clone()).map_err(|e| {
@@ -416,6 +418,7 @@ pub fn create_render_context(
         })?;
         let subpass = vulkano::pipeline::graphics::subpass::PipelineRenderingCreateInfo {
             color_attachment_formats: [Some(swapchain.image_format())].to_vec(),
+            depth_attachment_format: Some(vulkano::format::Format::D32_SFLOAT),
             ..Default::default()
         };
 
@@ -435,6 +438,11 @@ pub fn create_render_context(
                 multisample_state: Some(graphics::multisample::MultisampleState::default()),
                 color_blend_state: Some(graphics::color_blend::ColorBlendState {
                     attachments: [ColorBlendAttachmentState::default()].to_vec(),
+                    ..Default::default()
+                }),
+
+                depth_stencil_state: Some(graphics::depth_stencil::DepthStencilState {
+                    depth: Some(vulkano::pipeline::graphics::depth_stencil::DepthState::simple()),
                     ..Default::default()
                 }),
 
@@ -460,10 +468,16 @@ pub fn create_render_context(
 
     let previous_frame_end = Some(vulkano::sync::now(device.clone()).boxed());
 
+    let depth_buffer = create_depth_buffer(
+        memory_allocator.clone(),
+        [window_size.width, window_size.height],
+    )?;
+
     Ok(RenderContext {
         window: window.clone(),
         viewport,
         swapchain,
+        depth_buffer,
         pipeline,
         recreate_swapchain: false,
         previous_frame_end,
@@ -567,6 +581,14 @@ pub fn draw_scene(
                     render_context.image_views[image_index as usize].clone(),
                 )
             })],
+            depth_attachment: Some(vulkano::command_buffer::RenderingAttachmentInfo {
+                load_op: vulkano::render_pass::AttachmentLoadOp::Clear,
+                store_op: vulkano::render_pass::AttachmentStoreOp::DontCare,
+                clear_value: Some(1.0f32.into()),
+                ..vulkano::command_buffer::RenderingAttachmentInfo::image_view(
+                    render_context.depth_buffer.clone(),
+                )
+            }),
             ..Default::default()
         })
         .map_err(|e| {
@@ -694,4 +716,32 @@ pub fn recreate_swapchain(render_context: &mut RenderContext) -> Result<(), Vulk
 
     render_context.viewport.extent = new_window_size.into();
     Ok(())
+}
+
+fn create_depth_buffer(
+    memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
+    extent: [u32; 2],
+) -> Result<Arc<vulkano::image::view::ImageView>, VulkanError> {
+    let image = vulkano::image::Image::new(
+        memory_allocator,
+        vulkano::image::ImageCreateInfo {
+            image_type: vulkano::image::ImageType::Dim2d,
+            format: vulkano::format::Format::D32_SFLOAT,
+            extent: [extent[0], extent[1], 1].into(),
+            usage: vulkano::image::ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+
+            ..Default::default()
+        },
+        vulkano::memory::allocator::AllocationCreateInfo::default(),
+    )
+    .map_err(|e| {
+        error::VulkanError::ImageCreationError(format!("Failed to create depth image: {}", e))
+    })?;
+
+    vulkano::image::view::ImageView::new_default(image).map_err(|e| {
+        error::VulkanError::ImageViewCreationError(format!(
+            "Failed to create depth image view: {}",
+            e
+        ))
+    })
 }
