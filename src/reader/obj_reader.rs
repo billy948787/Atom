@@ -272,10 +272,10 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
     // if no camera exists, create a default camera
     if scene.cameras.is_empty() {
         scene.cameras.push(graphics::camera::Camera {
-            position: Vec3::new(0.0, 0.0, 1.0),
+            position: Vec3::new(0.0, 1.0, 5.0),
             target: Vec3::new(0.0, 0.0, 0.0), // Look at the origin
             up: Vec3::Y,                      // Set the up vector to Y axis
-            fov: 90.0,
+            fov: 30.0,
             near_plane: 0.1,
             far_plane: 100.0,
         });
@@ -335,9 +335,7 @@ fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Mate
                 }
                 current_material = Some(graphics::material::Material {
                     name: parts[1].to_string(),
-                    diffuse_color: Vec3::ZERO,
-                    specular_color: Vec3::ZERO,
-                    ambient_color: Vec3::ZERO,
+                    properties: graphics::material::MaterialProperties::default(),
                 });
             }
 
@@ -351,7 +349,7 @@ fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Mate
                     ));
                 }
                 if let Some(material) = &mut current_material {
-                    material.ambient_color = Vec3 {
+                    material.properties.ambient_color = Vec3 {
                         x: parts[1].parse().unwrap_or(0.0),
                         y: parts[2].parse().unwrap_or(0.0),
                         z: parts[3].parse().unwrap_or(0.0),
@@ -369,7 +367,7 @@ fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Mate
                     ));
                 }
                 if let Some(material) = &mut current_material {
-                    material.diffuse_color = Vec3 {
+                    material.properties.diffuse_color = Vec3 {
                         x: parts[1].parse().unwrap_or(0.0),
                         y: parts[2].parse().unwrap_or(0.0),
                         z: parts[3].parse().unwrap_or(0.0),
@@ -387,7 +385,7 @@ fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Mate
                     ));
                 }
                 if let Some(material) = &mut current_material {
-                    material.specular_color = Vec3 {
+                    material.properties.specular_color = Vec3 {
                         x: parts[1].parse().unwrap_or(0.0),
                         y: parts[2].parse().unwrap_or(0.0),
                         z: parts[3].parse().unwrap_or(0.0),

@@ -496,7 +496,7 @@ pub fn draw_scene(
     memory_allocator: Arc<vulkano::memory::allocator::StandardMemoryAllocator>,
     queue: Arc<vulkano::device::Queue>,
     renderable_scene: RenderableScene,
-) -> Result<(), GraphicsError> {
+) -> Result<(u32, Box<dyn vulkano::sync::GpuFuture>), GraphicsError> {
     if render_context.recreate_swapchain {
         recreate_swapchain(render_context, memory_allocator.clone())?;
         render_context.recreate_swapchain = false;
@@ -508,7 +508,7 @@ pub fn draw_scene(
             Ok(result) => result,
             Err(vulkano::VulkanError::OutOfDate) => {
                 render_context.recreate_swapchain = true;
-                return Ok(());
+                return Ok((0, vulkano::sync::now(queue.device().clone()).boxed()));
             }
             Err(e) => {
                 return Err(error::GraphicsError::from(
@@ -584,7 +584,7 @@ pub fn draw_scene(
             })],
             depth_attachment: Some(vulkano::command_buffer::RenderingAttachmentInfo {
                 load_op: vulkano::render_pass::AttachmentLoadOp::Clear,
-                store_op: vulkano::render_pass::AttachmentStoreOp::DontCare,
+                store_op: vulkano::render_pass::AttachmentStoreOp::Store,
                 clear_value: Some(1.0f32.into()),
                 ..vulkano::command_buffer::RenderingAttachmentInfo::image_view(
                     render_context.depth_buffer.clone(),
@@ -657,34 +657,9 @@ pub fn draw_scene(
                 "Failed to execute command buffer: {}",
                 e
             ))
-        })?
-        .then_swapchain_present(
-            queue.clone(),
-            vulkano::swapchain::SwapchainPresentInfo::swapchain_image_index(
-                render_context.swapchain.clone(),
-                image_index,
-            ),
-        )
-        .then_signal_fence_and_flush();
+        })?;
 
-    match future.map_err(vulkano::Validated::unwrap) {
-        Ok(future) => {
-            render_context.previous_frame_end = Some(future.boxed());
-        }
-        Err(vulkano::VulkanError::OutOfDate) => {
-            render_context.recreate_swapchain = true;
-            render_context.previous_frame_end =
-                Some(vulkano::sync::now(queue.device().clone()).boxed());
-        }
-        Err(e) => {
-            return Err(GraphicsError::from(VulkanError::SwapchainError(format!(
-                "Failed to flush future: {}",
-                e
-            ))));
-        }
-    }
-
-    Ok(())
+    Ok((image_index, future.boxed()))
 }
 
 pub fn recreate_swapchain(
@@ -738,7 +713,6 @@ fn create_depth_buffer(
             format: vulkano::format::Format::D32_SFLOAT,
             extent: [extent[0], extent[1], 1].into(),
             usage: vulkano::image::ImageUsage::DEPTH_STENCIL_ATTACHMENT,
-
             ..Default::default()
         },
         vulkano::memory::allocator::AllocationCreateInfo::default(),
