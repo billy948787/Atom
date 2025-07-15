@@ -330,7 +330,7 @@ impl ApplicationHandler for App {
                     window_context.render_context.image_views[image_index as usize].clone(),
                 );
 
-                ui_future
+                let _ = ui_future
                     .then_swapchain_present(
                         self.queue.clone(),
                         vulkano::swapchain::SwapchainPresentInfo::swapchain_image_index(
