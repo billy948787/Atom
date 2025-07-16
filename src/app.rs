@@ -1,17 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
-use vulkano::{
-    descriptor_set,
-    device::{DeviceFeatures, QueueCreateInfo, QueueFlags},
-    instance::{InstanceCreateFlags, InstanceCreateInfo},
-    sync::GpuFuture,
-};
 use winit::{
     application::ApplicationHandler,
     event::KeyEvent,
     keyboard::{Key, NamedKey},
     raw_window_handle::HasDisplayHandle,
-    window::{self},
+    window::{self, Fullscreen},
 };
 
 use crate::{graphics::backend::RenderContext, reader::obj_reader};
@@ -45,6 +39,8 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
                 .create_window(
                     window::Window::default_attributes()
                         .with_title("Atom Engine")
+                        // .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())))
+                        .with_maximized(true)
                         .with_resizable(true),
                 )
                 .unwrap(),
@@ -59,7 +55,7 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
 
         self.window_contexts.insert(window_id, render_context);
 
-        self.main_editor.scene = obj_reader::read_file("test_model/Soccer/Soccer.obj").unwrap();
+        self.main_editor.scene = obj_reader::read_file("test_model/Bunny/Bunny.obj").unwrap();
 
         println!("Window created with ID: {:?}", window_id);
     }
