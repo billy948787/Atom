@@ -14,7 +14,7 @@ use winit::{
     window::{self},
 };
 
-use crate::graphics::backend::RenderContext;
+use crate::{graphics::backend::RenderContext, reader::obj_reader};
 
 pub struct App<B: crate::graphics::backend::RenderBackend> {
     pub render_backend: B,
@@ -59,6 +59,8 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
 
         self.window_contexts.insert(window_id, render_context);
 
+        self.main_editor.scene = obj_reader::read_file("test_model/Soccer/Soccer.obj").unwrap();
+
         println!("Window created with ID: {:?}", window_id);
     }
 
@@ -68,6 +70,11 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
+        let window_context = self.window_contexts.get_mut(&window_id).unwrap();
+        if window_context.gui_update(&event) {
+            window_context.window().request_redraw();
+            return; // If the GUI handled the event, skip further processing
+        }
         match event {
             winit::event::WindowEvent::CloseRequested => {
                 println!("Window close requested");
@@ -91,17 +98,17 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
                                 egui_winit_vulkano::egui::Window::new("Main Editor").show(
                                     &context,
                                     |ui| {
-                                        ui.label("Welcome to the Atom Engine Editor!");
-                                        ui.label(format!(
-                                            "Scene contains {} objects",
-                                            scene.objects.len()
-                                        ));
+                                        ui.label("This is a label inside a window.");
+                                        if ui.button("Click me").clicked() {
+                                            println!("Button clicked!");
+                                        }
                                     },
                                 );
                             },
                             &scene,
                         )
                         .unwrap();
+                    window_context.window().request_redraw();
                 }
             }
             winit::event::WindowEvent::KeyboardInput {

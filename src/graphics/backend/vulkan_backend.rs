@@ -83,13 +83,16 @@ impl VulkanScene {
             .view_matrix();
 
         for mesh in &scene.objects {
-            model_matrices.push(mesh.world_transform);
-            normal_matrices.push((view_matrix * mesh.world_transform).inverse().transpose());
+            let model_matrix = mesh.world_transform;
+            let normal_matrix = (view_matrix * mesh.world_transform).inverse().transpose();
 
             for submesh in &mesh.submeshes {
                 if submesh.vertices.is_empty() || submesh.indices.is_empty() {
                     continue; // Skip empty submeshes
                 }
+
+                model_matrices.push(model_matrix);
+                normal_matrices.push(normal_matrix);
 
                 let first_index = all_indices.len() as u32;
                 let vertex_offset = all_vertices.len() as u32;
@@ -107,8 +110,8 @@ impl VulkanScene {
                 };
                 indirect_commands.push(command);
                 materials.push(submesh.material.clone());
+                instance_id += 1;
             }
-            instance_id += 1;
         }
         let vertex_buffer = vulkano::buffer::Buffer::from_iter(
             memory_allocator.clone(),
@@ -814,24 +817,12 @@ impl RenderBackend for VulkanBackend {
             gui_callback(&mut gui.context());
         });
 
-        let gui_command = context
-            .gui
-            .draw_on_subpass_image(context.swapchain.image_extent());
-        builder
-            .execute_commands(gui_command)
-            .map_err(|e| {
-                crate::graphics::backend::error::VulkanError::CommandBufferError(format!(
-                    "Failed to execute GUI command: {}",
-                    e
-                ))
-            })?
-            .end_rendering()
-            .map_err(|e| {
-                crate::graphics::backend::error::VulkanError::CommandBufferError(format!(
-                    "Failed to end rendering: {}",
-                    e
-                ))
-            })?;
+        builder.end_rendering().map_err(|e| {
+            crate::graphics::backend::error::VulkanError::CommandBufferError(format!(
+                "Failed to end rendering: {}",
+                e
+            ))
+        })?;
 
         let command_buffer = builder.build().map_err(|e| {
             crate::graphics::backend::error::VulkanError::CommandBufferError(format!(
@@ -840,7 +831,7 @@ impl RenderBackend for VulkanBackend {
             ))
         })?;
 
-        context
+        let scene_future = context
             .previous_frame_end
             .take()
             .unwrap_or_else(|| vulkano::sync::now(self.queue.device().clone()).boxed())
@@ -851,7 +842,14 @@ impl RenderBackend for VulkanBackend {
                     "Failed to execute command buffer: {}",
                     e
                 ))
-            })?
+            })?;
+
+        let gui_future = context.gui.draw_on_image(
+            scene_future,
+            context.image_views[image_index as usize].clone(),
+        );
+
+        let _ = gui_future
             .then_swapchain_present(
                 self.queue.clone(),
                 vulkano::swapchain::SwapchainPresentInfo::swapchain_image_index(
@@ -859,7 +857,13 @@ impl RenderBackend for VulkanBackend {
                     image_index,
                 ),
             )
-            .then_signal_fence_and_flush();
+            .then_signal_fence_and_flush()
+            .map_err(|e| {
+                crate::graphics::backend::error::VulkanError::CommandBufferError(format!(
+                    "Failed to flush command buffer: {}",
+                    e
+                ))
+            })?;
 
         Ok(())
     }
@@ -872,6 +876,10 @@ impl RenderContext for VulkanContext {
         self.viewport.extent = size.into();
 
         Ok(())
+    }
+
+    fn gui_update(&mut self, winit_event: &winit::event::WindowEvent) -> bool {
+        self.gui.update(&winit_event)
     }
     fn window(&self) -> Arc<winit::window::Window> {
         self.window.clone()
@@ -1028,6 +1036,7 @@ fn create_virtual_device(
                 dynamic_rendering: true,
                 multi_draw_indirect: true,
                 shader_draw_parameters: true,
+                image_view_format_swizzle: true,
                 ..vulkano::device::DeviceFeatures::empty()
             },
             ..Default::default()

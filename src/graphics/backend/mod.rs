@@ -25,4 +25,5 @@ pub trait RenderBackend: Sized + Debug {
 pub trait RenderContext {
     fn window(&self) -> Arc<winit::window::Window>;
     fn resize(&mut self) -> Result<(), crate::graphics::error::GraphicsError>;
+    fn gui_update(&mut self, winit_event: &winit::event::WindowEvent) -> bool;
 }

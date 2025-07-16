@@ -7,7 +7,7 @@ layout(location=2)in vec2 tex_coord;
 layout(location=0)out vec3 v_position;
 layout(location=1)out vec3 v_normal;
 layout(location=2)out vec2 v_tex_coord;
-layout(location=3)out flat int v_draw_id;
+layout(location=3)out flat int v_instance_index;
 
 layout(set=0,binding=0)uniform CameraUbo{
     mat4 view;
@@ -29,5 +29,5 @@ void main(){
     v_position=position;
     v_normal=normalize(mat3(normal_matrix)*normal);
     v_tex_coord=tex_coord;
-    v_draw_id=gl_DrawID;
+    v_instance_index=gl_InstanceIndex;
 }

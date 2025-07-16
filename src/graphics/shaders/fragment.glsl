@@ -5,7 +5,7 @@ layout(location=0)out vec4 color;
 layout(location=0)in vec3 v_position;
 layout(location=1)in vec3 v_normal;
 layout(location=2)in vec2 v_tex_coord;
-layout(location=3)in flat int v_draw_id;
+layout(location=3)in flat int v_instance_index;
 
 struct Material{
     vec3 ambient_color;
@@ -39,14 +39,14 @@ vec3 specular_color(vec3 light_color,vec3 specular_material,vec3 view_dir,vec3 l
 }
 
 void main(){
-    Material mat=material_buffer.materials[v_draw_id];
+    Material mat=material_buffer.materials[v_instance_index];
     
     // simple lighting calculation
     vec3 light_dir=-normalize(vec3(1.,1.,1.));
     light_dir=normalize(mat3(camera.view)*light_dir);// transform light direction to view space
     // transform light direction to view space
     float diff=dot(v_normal,light_dir);
-    vec3 light_color=vec3(1.0, 1.0, 1.0);// white light
+    vec3 light_color=vec3(1.,1.,1.);// white light
     
     vec3 ambient=ambient_color(vec3(.2,.2,.2),mat.ambient_color);
     vec3 diffuse=diffuse_color(light_color,mat.diffuse_color,v_normal,light_dir);
