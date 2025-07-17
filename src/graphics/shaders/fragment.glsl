@@ -11,6 +11,7 @@ struct Material{
     vec3 ambient_color;
     vec3 diffuse_color;
     vec3 specular_color;
+    float specular_exponent;
 };
 
 layout(set=0,binding=0)uniform CameraUbo{
@@ -31,11 +32,11 @@ vec3 diffuse_color(vec3 light_color,vec3 diffuse_material,vec3 normal,vec3 light
     return light_color*diffuse_material*diff;
 }
 
-vec3 specular_color(vec3 light_color,vec3 specular_material,vec3 view_dir,vec3 light_dir,vec3 normal){
+vec3 specular_color(vec3 light_color,vec3 specular_material,vec3 view_dir,vec3 light_dir,vec3 normal,float specular_exponent){
     // use the Blinn-Phong reflection model
     vec3 half_vector=normalize(light_dir+view_dir);
     float spec=max(dot(normal,half_vector),0.);
-    return light_color*specular_material*pow(spec,32.);// shininess factor of 32
+    return light_color*specular_material*pow(spec,specular_exponent);
 }
 
 void main(){
@@ -47,11 +48,11 @@ void main(){
     
     // transform light direction to view space
     float diff=dot(v_normal,light_dir);
-    vec3 light_color=vec3(1.,1.,1.)*5;// white light
+    vec3 light_color=vec3(1.,1.,1.) * 5;// white light
     
     vec3 ambient=ambient_color(vec3(.2,.2,.2),mat.ambient_color);
     vec3 diffuse=diffuse_color(light_color,mat.diffuse_color,v_normal,light_dir);
-    vec3 specular=specular_color(light_color,mat.specular_color,-normalize(v_position),light_dir,v_normal);
+    vec3 specular=specular_color(light_color,mat.specular_color,-normalize(v_position),light_dir,v_normal,mat.specular_exponent);
     
     color=vec4(ambient+diffuse+specular,1.);
 }

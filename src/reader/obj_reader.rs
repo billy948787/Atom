@@ -219,19 +219,23 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
                 }
                 // create path to mtl file
 
-                let mtl_path = format! {
-                    "{}/{}",
-                    path.rfind('/')
-                        .map_or("", |i| &path[..i]),
-                    parts[1]
+                let obj_dir = match std::path::Path::new(path).parent() {
+                    Some(dir) => dir,
+                    None => std::path::Path::new(""),
                 };
-                println!("Loading MTL file: {}", mtl_path);
-                match parse_mtl_file(&mtl_path) {
+
+                let mtl_file_name = parts[1];
+                let mtl_path = obj_dir.join(mtl_file_name);
+
+                let mtl_path_str = mtl_path.to_str().unwrap_or("error.mtl");
+
+                println!("Loading MTL file: {}", mtl_path_str);
+                match parse_mtl_file(&mtl_path_str) {
                     Ok(materials) => {
                         material_map.extend(materials);
                     }
                     Err(_) => {
-                        println!("Failed to load MTL file: {}", mtl_path);
+                        println!("Failed to load MTL file: {}", mtl_path_str);
                     }
                 }
             }
@@ -392,6 +396,20 @@ fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Mate
                         y: parts[2].parse().unwrap_or(0.0),
                         z: parts[3].parse().unwrap_or(0.0),
                     };
+                }
+            }
+
+            "Ns" => {
+                // Specular exponent
+                if parts.len() < 2 {
+                    return Err(FileError::FormatError(
+                        "Invalid specular exponent".to_string(),
+                        crate::reader::FileType::Mtl,
+                        line_number,
+                    ));
+                }
+                if let Some(material) = &mut current_material {
+                    material.properties.specular_exponent = parts[1].parse().unwrap_or(0.0);
                 }
             }
 

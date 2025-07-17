@@ -986,6 +986,14 @@ fn create_virtual_device(
         .enumerate_physical_devices()
         .expect("could not enumerate devices");
 
+    let required_features = vulkano::device::DeviceFeatures {
+        dynamic_rendering: true,
+        multi_draw_indirect: true,
+        shader_draw_parameters: true,
+        image_view_format_swizzle: true,
+        ..vulkano::device::DeviceFeatures::empty()
+    };
+
     let (suitable_device, queue_family_indexs) = devices
         .into_iter()
         .filter(|device| {
@@ -1028,7 +1036,11 @@ fn create_virtual_device(
     if suitable_device.api_version() < vulkano::Version::V1_3 {
         device_extensions.khr_dynamic_rendering = true;
     }
+    let enabled_features = suitable_device
+        .supported_features()
+        .intersection(&required_features);
 
+    println!("Enabled features: {:?}", enabled_features);
     let (device, queues) = vulkano::device::Device::new(
         suitable_device,
         vulkano::device::DeviceCreateInfo {
@@ -1040,13 +1052,7 @@ fn create_virtual_device(
                     ..Default::default()
                 })
                 .collect::<Vec<_>>(),
-            enabled_features: vulkano::device::DeviceFeatures {
-                dynamic_rendering: true,
-                multi_draw_indirect: true,
-                shader_draw_parameters: true,
-                image_view_format_swizzle: true,
-                ..vulkano::device::DeviceFeatures::empty()
-            },
+            enabled_features,
             ..Default::default()
         },
     )

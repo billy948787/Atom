@@ -1,6 +1,8 @@
 use egui_winit_vulkano::{self, egui};
 
 use crate::reader::{FileType, obj_reader};
+
+pub mod command;
 #[derive(Debug)]
 pub struct Editor {
     pub scene: crate::graphics::scene::Scene,
@@ -43,7 +45,7 @@ impl Editor {
         });
 
         egui::Window::new("object properties").show(ctx, |ui| {
-            for (i, mut object) in self.scene.objects.iter_mut().enumerate() {
+            for (i, object) in self.scene.objects.iter_mut().enumerate() {
                 ui.label(format!("Object {}", i));
 
                 let (mut scale, mut rotation, mut translation) =
@@ -87,6 +89,42 @@ impl Editor {
                 object.world_transform =
                     glam::Mat4::from_scale_rotation_translation(scale, rotation, translation);
             }
+        });
+
+        // camera properties
+        egui::Window::new("Camera Properties").show(ctx, |ui| {
+            let camera = &mut self.scene.cameras[self.scene.main_camera_index];
+            ui.label("Camera Properties");
+            ui.horizontal(|ui| {
+                ui.label("Position:");
+                ui.add(egui::DragValue::new(&mut camera.position.x).speed(0.1));
+                ui.add(egui::DragValue::new(&mut camera.position.y).speed(0.1));
+                ui.add(egui::DragValue::new(&mut camera.position.z).speed(0.1));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Target:");
+                ui.add(egui::DragValue::new(&mut camera.target.x).speed(0.1));
+                ui.add(egui::DragValue::new(&mut camera.target.y).speed(0.1));
+                ui.add(egui::DragValue::new(&mut camera.target.z).speed(0.1));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Up Vector:");
+                ui.add(egui::DragValue::new(&mut camera.up.x).speed(0.1));
+                ui.add(egui::DragValue::new(&mut camera.up.y).speed(0.1));
+                ui.add(egui::DragValue::new(&mut camera.up.z).speed(0.1));
+            });
+            ui.horizontal(|ui| {
+                ui.label("FOV (degrees):");
+                ui.add(egui::DragValue::new(&mut camera.fov).speed(0.1));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Near Plane:");
+                ui.add(egui::DragValue::new(&mut camera.near_plane).speed(0.1));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Far Plane:");
+                ui.add(egui::DragValue::new(&mut camera.far_plane).speed(0.1));
+            });
         });
     }
 }

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use winit::{application::ApplicationHandler, window};
+use winit::{application::ApplicationHandler, window::{self, Fullscreen}};
 
 use crate::{graphics::backend::RenderContext, reader::obj_reader};
 
@@ -28,8 +28,8 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
                 .create_window(
                     window::Window::default_attributes()
                         .with_title("Atom Engine")
-                        // .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())))
-                        .with_maximized(true)
+                        .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())))
+                        // .with_maximized(true)
                         .with_resizable(true),
                 )
                 .unwrap(),
@@ -63,14 +63,27 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
                 println!("Window close requested");
                 event_loop.exit();
             }
-            winit::event::WindowEvent::Resized(size) => {
-                println!("Window resized to: {:?}", size);
+            winit::event::WindowEvent::Resized(new_size) => {
+                println!("Window resized to: {:?}", new_size);
+
+                if new_size.width == 0 || new_size.height == 0 {
+                    return;
+                }
 
                 if let Some(window_context) = self.window_contexts.get_mut(&window_id) {
                     window_context.resize().unwrap();
                 }
             }
             winit::event::WindowEvent::RedrawRequested => {
+                // check the window size
+                if let Some(window_context) = self.window_contexts.get_mut(&window_id) {
+                    if window_context.window().inner_size().width == 0
+                        || window_context.window().inner_size().height == 0
+                    {
+                        return;
+                    }
+                }
+
                 if let Some(window_context) = self.window_contexts.get_mut(&window_id) {
                     let scene = self.main_editor.scene.clone();
 
