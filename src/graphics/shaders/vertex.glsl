@@ -25,9 +25,12 @@ layout(set=0,binding=3)buffer NormalMatrices{
 void main(){
     mat4 model_matrix=models.model[gl_InstanceIndex];
     mat4 normal_matrix=normals.normal[gl_InstanceIndex];
-    gl_Position=camera.proj*camera.view*model_matrix*vec4(position,1.);
-    v_position=position;
-    v_normal=normalize(mat3(normal_matrix)*normal);
+    
+    vec4 temp_position=camera.view*model_matrix*vec4(position,1.);
+    
+    gl_Position=camera.proj*temp_position;
+    v_position=temp_position.xyz;
+    v_normal=normalize(normal_matrix*vec4(normal,0.)).xyz;
     v_tex_coord=tex_coord;
     v_instance_index=gl_InstanceIndex;
 }

@@ -16,3 +16,4 @@ bytemuck = "1.23.1"
 atom_macros = { path = "atom_macros" }
 glam = { version = "0.30.4", features = ["bytemuck"] }
 egui_winit_vulkano = "0.28.0"
+rfd = "0.15.4"

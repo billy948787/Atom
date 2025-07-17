@@ -1,5 +1,5 @@
 use crate::graphics;
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Scene {
     pub objects: Vec<graphics::mesh::Mesh>,
     pub cameras: Vec<graphics::camera::Camera>,
@@ -17,9 +17,21 @@ impl Scene {
         }
     }
 
-    fn merge(&mut self, other: Scene) {
+   pub fn merge(&mut self, other: Scene) {
         self.objects.extend(other.objects);
         self.cameras.extend(other.cameras);
         self.lights.extend(other.lights);
+    }
+}
+
+impl Default for Scene {
+    fn default() -> Self {
+        let cameras = vec![graphics::camera::Camera::default()];
+        Self {
+            objects: Vec::new(),
+            cameras,
+            lights: Vec::new(),
+            main_camera_index: 0,
+        }
     }
 }

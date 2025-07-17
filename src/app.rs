@@ -1,12 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use winit::{
-    application::ApplicationHandler,
-    event::KeyEvent,
-    keyboard::{Key, NamedKey},
-    raw_window_handle::HasDisplayHandle,
-    window::{self, Fullscreen},
-};
+use winit::{application::ApplicationHandler, window};
 
 use crate::{graphics::backend::RenderContext, reader::obj_reader};
 
@@ -15,11 +9,6 @@ pub struct App<B: crate::graphics::backend::RenderBackend> {
     pub main_editor: crate::editor::Editor,
     pub window_contexts: HashMap<winit::window::WindowId, B::Context>,
 }
-
-#[cfg(all(debug_assertions))]
-const ENABLE_VALIDATION_LAYERS: bool = true;
-#[cfg(not(debug_assertions))]
-const ENABLE_VALIDATION_LAYERS: bool = false;
 
 impl<B: crate::graphics::backend::RenderBackend> App<B> {
     pub fn new(event_loop: &winit::event_loop::EventLoop<()>) -> Self {
@@ -55,8 +44,6 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
 
         self.window_contexts.insert(window_id, render_context);
 
-        self.main_editor.scene = obj_reader::read_file("test_model/Bunny/Bunny.obj").unwrap();
-
         println!("Window created with ID: {:?}", window_id);
     }
 
@@ -91,15 +78,7 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
                         .draw_frame(
                             window_context,
                             |context| {
-                                egui_winit_vulkano::egui::Window::new("Main Editor").show(
-                                    &context,
-                                    |ui| {
-                                        ui.label("This is a label inside a window.");
-                                        if ui.button("Click me").clicked() {
-                                            println!("Button clicked!");
-                                        }
-                                    },
-                                );
+                                self.main_editor.ui(&context);
                             },
                             &scene,
                         )

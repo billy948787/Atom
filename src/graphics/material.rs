@@ -4,8 +4,11 @@ use glam::Vec3;
 #[repr(C)]
 pub struct MaterialProperties {
     pub ambient_color: Vec3,
+    _padding1: u32, // Padding to ensure proper alignment
     pub diffuse_color: Vec3,
+    _padding2: u32, // Padding to ensure proper alignment
     pub specular_color: Vec3,
+    _padding3: u32, // Padding to ensure proper alignment
 }
 
 impl Default for MaterialProperties {
@@ -14,6 +17,9 @@ impl Default for MaterialProperties {
             ambient_color: Vec3::new(0.2, 0.2, 0.2),
             diffuse_color: Vec3::new(1.0, 1.0, 1.0),
             specular_color: Vec3::new(1.0, 1.0, 1.0),
+            _padding1: 0,
+            _padding2: 0,
+            _padding3: 0,
         }
     }
 }
@@ -30,28 +36,6 @@ impl Default for Material {
         Material {
             name: "Default Material".to_string(),
             properties: MaterialProperties::default(),
-        }
-    }
-}
-
-#[derive(vulkano::buffer::BufferContents)]
-#[repr(C)]
-pub struct GpuMaterial {
-    properties: MaterialProperties,
-}
-
-impl From<Material> for GpuMaterial {
-    fn from(material: Material) -> Self {
-        GpuMaterial {
-            properties: material.properties,
-        }
-    }
-}
-
-impl From<&Material> for GpuMaterial {
-    fn from(material: &Material) -> Self {
-        GpuMaterial {
-            properties: material.properties.clone(),
         }
     }
 }

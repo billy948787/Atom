@@ -7,6 +7,7 @@ use vulkano::sync::GpuFuture;
 
 use crate::graphics::backend::error::VulkanError;
 use crate::graphics::backend::{RenderBackend, RenderContext};
+
 #[cfg(all(debug_assertions))]
 const ENABLE_VALIDATION_LAYERS: bool = true;
 #[cfg(not(debug_assertions))]
@@ -57,7 +58,8 @@ pub struct VulkanScene {
     pub normal_buffer: vulkano::buffer::Subbuffer<[glam::Mat4]>,
     pub indirect_buffer:
         vulkano::buffer::Subbuffer<[vulkano::command_buffer::DrawIndexedIndirectCommand]>,
-    pub material_buffer: vulkano::buffer::Subbuffer<[crate::graphics::material::GpuMaterial]>,
+    pub material_buffer:
+        vulkano::buffer::Subbuffer<[crate::graphics::material::MaterialProperties]>,
 }
 
 impl VulkanScene {
@@ -109,7 +111,7 @@ impl VulkanScene {
                     first_instance: instance_id,
                 };
                 indirect_commands.push(command);
-                materials.push(submesh.material.clone());
+                materials.push(submesh.material.properties.clone());
                 instance_id += 1;
             }
         }
@@ -249,7 +251,7 @@ impl VulkanScene {
                     | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
-            materials.into_iter().map(|m| m.into()).collect::<Vec<_>>(),
+            materials.into_iter(),
         )
         .map_err(|e| {
             crate::graphics::error::GraphicsError::from(
@@ -642,7 +644,12 @@ impl RenderBackend for VulkanBackend {
         scene: &crate::graphics::scene::Scene,
     ) -> Result<(), crate::graphics::error::GraphicsError> {
         if context.need_recreate_swapchain {
-            self.recreate_swapchain(context);
+            self.recreate_swapchain(context).map_err(|e| {
+                crate::graphics::backend::error::VulkanError::SwapchainError(format!(
+                    "Failed to recreate swapchain: {}",
+                    e
+                ))
+            })?;
             context.need_recreate_swapchain = false;
         }
         let (image_index, suboptimal, acquire_future) =
@@ -863,7 +870,8 @@ impl RenderBackend for VulkanBackend {
                     "Failed to flush command buffer: {}",
                     e
                 ))
-            })?;
+            })?
+            .cleanup_finished();
 
         Ok(())
     }

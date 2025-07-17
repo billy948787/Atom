@@ -16,6 +16,19 @@ impl std::fmt::Display for Camera {
     }
 }
 
+impl Default for Camera {
+    fn default() -> Self {
+        Camera {
+            position: Vec3::new(0.0, 0.0, 5.0),
+            target: Vec3::new(0.0, 0.0, 0.0),
+            up: Vec3::new(0.0, 1.0, 0.0),
+            fov: 45.0,
+            near_plane: 0.1,
+            far_plane: 100.0,
+        }
+    }
+}
+
 impl Camera {
     pub fn view_matrix(&self) -> glam::Mat4 {
         glam::Mat4::look_at_rh(self.position, self.target, self.up)

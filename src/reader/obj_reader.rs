@@ -140,6 +140,7 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
                         line_number,
                     ));
                 }
+
                 let mut face_vertex_indices: Vec<u32> = Vec::new();
                 // get submesh from previous created from usemtl
 
@@ -155,10 +156,11 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
                         mesh.submeshes.last_mut().unwrap()
                     }
                 };
+
                 for part in &parts[1..] {
                     let indices: Vec<usize> = part
                         .split('/')
-                        .map(|s| s.parse::<usize>().unwrap_or(0) - 1)
+                        .map(|s| s.parse::<usize>().unwrap_or(1) - 1)
                         .collect();
 
                     if indices.len() < 1 || indices[0] >= positions.len() {
