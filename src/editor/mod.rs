@@ -14,8 +14,11 @@ pub struct Editor {
 
 impl Default for Editor {
     fn default() -> Self {
+        let scene = crate::graphics::scene::Scene::default();
+        
+
         Editor {
-            scene: obj_reader::read_file("test_model/Forklift/Forklift.obj").unwrap(),
+            scene,
             selected_file_type: FileType::default(),
         }
     }

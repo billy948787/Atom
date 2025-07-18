@@ -1,4 +1,6 @@
-use crate::graphics;
+use glam::Vec3;
+
+use crate::graphics::{self, primitives};
 #[derive(Debug, Clone)]
 pub struct Scene {
     pub objects: Vec<graphics::mesh::Mesh>,
@@ -17,7 +19,7 @@ impl Scene {
         }
     }
 
-   pub fn merge(&mut self, other: Scene) {
+    pub fn merge(&mut self, other: Scene) {
         self.objects.extend(other.objects);
         self.cameras.extend(other.cameras);
         self.lights.extend(other.lights);
@@ -27,10 +29,12 @@ impl Scene {
 impl Default for Scene {
     fn default() -> Self {
         let cameras = vec![graphics::camera::Camera::default()];
+        let lights = vec![graphics::light::Light::default()];
+        let default_object = primitives::create_sphere(Vec3::ZERO, 1.0, 32).mesh;
         Self {
-            objects: Vec::new(),
+            objects: vec![default_object],
             cameras,
-            lights: Vec::new(),
+            lights,
             main_camera_index: 0,
         }
     }

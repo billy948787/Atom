@@ -24,6 +24,16 @@ pub enum Light {
     Directional(DirectionalLight),
 }
 
+impl Default for Light {
+    fn default() -> Self {
+        Light::Point(PointLight {
+            position: glam::Vec3::ZERO,
+            color: glam::Vec3::new(1.0, 1.0, 1.0),
+            intensity: 1.0,
+        })
+    }
+}
+
 #[derive(vulkano::buffer::BufferContents, Debug)]
 #[repr(C)]
 pub struct GpuLight {

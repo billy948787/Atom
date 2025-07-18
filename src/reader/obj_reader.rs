@@ -274,51 +274,6 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
 
     scene.objects.push(mesh);
 
-    // check if camera exists
-    // if no camera exists, create a default camera
-    if scene.cameras.is_empty() {
-        scene.cameras.push(graphics::camera::Camera {
-            position: Vec3::new(0.0, 1.0, 5.0),
-            target: Vec3::new(0.0, 0.0, 0.0), // Look at the origin
-            up: Vec3::Y,                      // Set the up vector to Y axis
-            fov: 30.0,
-            near_plane: 0.1,
-            far_plane: 100.0,
-        });
-    }
-
-    // let camera look at object center
-    if let Some(camera) = scene.cameras.first_mut() {
-        // Get the first object immutably, as we only need to read vertex data.
-        if let Some(first_object) = scene.objects.first() {
-            let all_vertices: Vec<Vec3> = first_object
-                .submeshes
-                .iter()
-                .flat_map(|submesh| submesh.vertices.iter().map(|v| v.position))
-                .collect();
-
-            if !all_vertices.is_empty() {
-                let total_vertices = all_vertices.len() as f32;
-                let sum_of_positions = all_vertices.into_iter().fold(Vec3::ZERO, |acc, v| acc + v);
-                let center = sum_of_positions / total_vertices;
-
-                // Position the camera slightly away from the center and make it look at the center.
-                camera.position = center + Vec3::new(0.0, 0.0, 5.0);
-                camera.target = center; // The target is the center of the object.
-            }
-        }
-    }
-
-    if scene.lights.is_empty() {
-        scene
-            .lights
-            .push(graphics::light::Light::Point(graphics::light::PointLight {
-                position: Vec3::new(0.0, 5.0, 5.0),
-                color: Vec3::new(1.0, 1.0, 1.0),
-                intensity: 1.0,
-            }));
-    }
-
     Ok(scene)
 }
 
