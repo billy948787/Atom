@@ -14,6 +14,14 @@ struct Material{
     float specular_exponent;
 };
 
+struct Light{
+    vec3 position;
+    vec3 direction;
+    vec3 color;
+    float intensity;
+    uint light_type;// 0: point, 1: directional
+};
+
 layout(set=0,binding=0)uniform CameraUbo{
     mat4 view;
     mat4 proj;
@@ -22,6 +30,10 @@ layout(set=0,binding=0)uniform CameraUbo{
 layout(set=0,binding=2)buffer MaterialBuffer{
     Material materials[];
 }material_buffer;
+
+layout(set=0,binding=4)buffer LightBuffer{
+    Light lights[];
+}light_buffer;
 
 vec3 ambient_color(vec3 ambient_light,vec3 ambient_material){
     return ambient_light*ambient_material;
@@ -42,17 +54,35 @@ vec3 specular_color(vec3 light_color,vec3 specular_material,vec3 view_dir,vec3 l
 void main(){
     Material mat=material_buffer.materials[v_instance_index];
     
-    // simple lighting calculation
-    vec3 light_dir=vec3(5.,5.,-5.);
-    light_dir=normalize(camera.view*vec4(light_dir,0.)).xyz;
+    vec3 ambient_light=vec3(.1,.1,.1);// default ambient light
     
-    // transform light direction to view space
-    float diff=dot(v_normal,light_dir);
-    vec3 light_color=vec3(1.,1.,1.) * 5;// white light
+    vec3 total_color=vec3(0.);
     
-    vec3 ambient=ambient_color(vec3(.2,.2,.2),mat.ambient_color);
-    vec3 diffuse=diffuse_color(light_color,mat.diffuse_color,v_normal,light_dir);
-    vec3 specular=specular_color(light_color,mat.specular_color,-normalize(v_position),light_dir,v_normal,mat.specular_exponent);
+    for(int i=0;i<light_buffer.lights.length();i++){
+        Light light=light_buffer.lights[i];
+        vec3 light_dir;
+        float intensity=light.intensity;
+        
+        if(light.light_type==0){// point light
+            // transform light position to view space
+            vec4 light_pos_view=camera.view*vec4(light.position,1.);
+            light_dir=normalize(light_pos_view.xyz-v_position);
+            float attenuation=1./(1.+.09*length(light_pos_view.xyz-v_position)+.032*length(light_pos_view.xyz-v_position)*length(light_pos_view.xyz-v_position));
+            intensity*=attenuation;
+        }else{// directional light
+            light_dir=-normalize(light.direction);
+        }
+        
+        vec3 diffuse=diffuse_color(light.color,mat.diffuse_color,v_normal,light_dir);
+        vec3 view_dir=normalize(-v_position);// assuming camera is at origin
+        
+        vec3 specular=specular_color(light.color,mat.specular_color,view_dir,light_dir,v_normal,mat.specular_exponent);
+        
+        total_color+=(diffuse+specular)*intensity;
+    }
     
-    color=vec4(ambient+diffuse+specular,1.);
+    vec3 ambient=ambient_color(ambient_light,mat.ambient_color);
+    total_color+=ambient;
+    
+    color=vec4(total_color,1.);
 }

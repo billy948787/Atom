@@ -309,7 +309,15 @@ fn parse_file(path: &str, file: &str) -> Result<graphics::scene::Scene, FileErro
         }
     }
 
-    if scene.lights.is_empty() {}
+    if scene.lights.is_empty() {
+        scene
+            .lights
+            .push(graphics::light::Light::Point(graphics::light::PointLight {
+                position: Vec3::new(0.0, 5.0, 5.0),
+                color: Vec3::new(1.0, 1.0, 1.0),
+                intensity: 1.0,
+            }));
+    }
 
     Ok(scene)
 }
@@ -341,7 +349,7 @@ fn parse_mtl_file(path: &str) -> Result<HashMap<String, graphics::material::Mate
                 }
                 current_material = Some(graphics::material::Material {
                     name: parts[1].to_string(),
-                    properties: graphics::material::MaterialProperties::default(),
+                    properties: graphics::material::GpuMaterials::default(),
                 });
             }
 

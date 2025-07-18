@@ -1,8 +1,9 @@
+pub mod backend;
 pub mod camera;
+pub mod error;
 pub mod light;
+pub mod material;
 pub mod mesh;
+pub mod primitives;
 pub mod scene;
 pub mod vertex;
-pub mod error;
-pub mod backend;
-pub mod material;

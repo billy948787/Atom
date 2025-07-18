@@ -1,6 +1,9 @@
 use egui_winit_vulkano::{self, egui};
 
-use crate::reader::{FileType, obj_reader};
+use crate::{
+    graphics::light::Light,
+    reader::{FileType, obj_reader},
+};
 
 pub mod command;
 #[derive(Debug)]
@@ -125,6 +128,46 @@ impl Editor {
                 ui.label("Far Plane:");
                 ui.add(egui::DragValue::new(&mut camera.far_plane).speed(0.1));
             });
+        });
+
+        //light controls
+        egui::Window::new("Light Controls").show(ctx, |ui| {
+            for (i, light) in self.scene.lights.iter_mut().enumerate() {
+                match light {
+                    Light::Directional(directional) => {
+                        ui.label(format!("Directional Light {}", i));
+                        ui.horizontal(|ui| {
+                            ui.label("Direction:");
+                            ui.add(egui::DragValue::new(&mut directional.direction.x).speed(0.1));
+                            ui.add(egui::DragValue::new(&mut directional.direction.y).speed(0.1));
+                            ui.add(egui::DragValue::new(&mut directional.direction.z).speed(0.1));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Color:");
+                            ui.color_edit_button_rgb(&mut directional.color.into());
+                        });
+                    }
+                    Light::Point(point) => {
+                        ui.label(format!("Point Light {}", i));
+                        ui.horizontal(|ui| {
+                            ui.label("Position:");
+                            ui.add(egui::DragValue::new(&mut point.position.x).speed(0.1));
+                            ui.add(egui::DragValue::new(&mut point.position.y).speed(0.1));
+                            ui.add(egui::DragValue::new(&mut point.position.z).speed(0.1));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Color:");
+                            let mut color_arr = point.color.to_array();
+                            ui.color_edit_button_rgb(&mut color_arr);
+                            point.color = glam::Vec3::from_array(color_arr);
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Intensity:");
+                            ui.add(egui::DragValue::new(&mut point.intensity).speed(0.1));
+                        });
+                    }
+                }
+            }
         });
     }
 }

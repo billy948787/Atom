@@ -7,6 +7,7 @@ use vulkano::sync::GpuFuture;
 
 use crate::graphics::backend::error::VulkanError;
 use crate::graphics::backend::{RenderBackend, RenderContext};
+use crate::graphics::light::GpuLight;
 
 #[cfg(all(debug_assertions))]
 const ENABLE_VALIDATION_LAYERS: bool = true;
@@ -58,8 +59,8 @@ pub struct VulkanScene {
     pub normal_buffer: vulkano::buffer::Subbuffer<[glam::Mat4]>,
     pub indirect_buffer:
         vulkano::buffer::Subbuffer<[vulkano::command_buffer::DrawIndexedIndirectCommand]>,
-    pub material_buffer:
-        vulkano::buffer::Subbuffer<[crate::graphics::material::MaterialProperties]>,
+    pub material_buffer: vulkano::buffer::Subbuffer<[crate::graphics::material::GpuMaterials]>,
+    pub light_buffer: vulkano::buffer::Subbuffer<[crate::graphics::light::GpuLight]>,
 }
 
 impl VulkanScene {
@@ -77,12 +78,17 @@ impl VulkanScene {
         let mut model_matrices = Vec::new();
         let mut normal_matrices = Vec::new();
         let mut materials = Vec::new();
+        let mut lights = Vec::<GpuLight>::new();
 
         let view_matrix = scene
             .cameras
             .get(scene.main_camera_index)
             .ok_or_else(|| crate::graphics::error::GraphicsError::NoCameraFound)?
             .view_matrix();
+
+        for light in &scene.lights {
+            lights.push(light.into());
+        }
 
         for mesh in &scene.objects {
             let model_matrix = mesh.world_transform;
@@ -283,6 +289,28 @@ impl VulkanScene {
                 )),
             )
         })?;
+
+        let light_buffer = vulkano::buffer::Buffer::from_iter(
+            memory_allocator.clone(),
+            vulkano::buffer::BufferCreateInfo {
+                usage: vulkano::buffer::BufferUsage::STORAGE_BUFFER,
+                ..Default::default()
+            },
+            vulkano::memory::allocator::AllocationCreateInfo {
+                memory_type_filter: vulkano::memory::allocator::MemoryTypeFilter::PREFER_DEVICE
+                    | vulkano::memory::allocator::MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                ..Default::default()
+            },
+            lights.into_iter(),
+        )
+        .map_err(|e| {
+            crate::graphics::error::GraphicsError::from(
+                crate::graphics::backend::error::VulkanError::BufferCreationError(format!(
+                    "Failed to create light buffer: {}",
+                    e
+                )),
+            )
+        })?;
         Ok(Self {
             vertex_buffer,
             index_buffer,
@@ -291,6 +319,7 @@ impl VulkanScene {
             matrix_buffer,
             material_buffer,
             normal_buffer,
+            light_buffer,
         })
     }
 }
@@ -720,6 +749,10 @@ impl RenderBackend for VulkanBackend {
                 vulkano::descriptor_set::WriteDescriptorSet::buffer(
                     3,
                     renderable_scene.normal_buffer.clone(),
+                ),
+                vulkano::descriptor_set::WriteDescriptorSet::buffer(
+                    4,
+                    renderable_scene.light_buffer.clone(),
                 ),
             ],
             [],
