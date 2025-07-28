@@ -1,6 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
-use winit::{application::ApplicationHandler, window::{self, Fullscreen}};
+use winit::{
+    application::ApplicationHandler,
+    window::{self, Fullscreen},
+};
 
 use crate::{graphics::backend::RenderContext, reader::obj_reader};
 
@@ -28,8 +31,8 @@ impl<B: crate::graphics::backend::RenderBackend> ApplicationHandler for App<B> {
                 .create_window(
                     window::Window::default_attributes()
                         .with_title("Atom Engine")
-                        .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())))
-                        // .with_maximized(true)
+                        // .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor())))
+                        .with_maximized(true)
                         .with_resizable(true),
                 )
                 .unwrap(),

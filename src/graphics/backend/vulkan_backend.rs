@@ -33,7 +33,8 @@ pub struct VulkanBackend {
     instance: Arc<vulkano::instance::Instance>,
     pub descriptor_set_allocator:
         Arc<vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator>,
-    pub queue: Arc<vulkano::device::Queue>,
+    pub graphic_queue: Arc<vulkano::device::Queue>,
+    pub transfer_queue: Arc<vulkano::device::Queue>,
     pub device: Arc<vulkano::device::Device>,
     pub command_buffer_allocator:
         Arc<vulkano::command_buffer::allocator::StandardCommandBufferAllocator>,
@@ -400,7 +401,8 @@ impl RenderBackend for VulkanBackend {
         Ok(Self {
             instance,
             device: virtual_device,
-            queue: queues.next().expect("No queues available"),
+            graphic_queue: queues.next().expect("No queues available"),
+            transfer_queue: queues.next().expect("No queues available"),
             descriptor_set_allocator,
             command_buffer_allocator,
             memory_allocator,
@@ -645,7 +647,7 @@ impl RenderBackend for VulkanBackend {
                         e
                     ))
                 })?,
-            self.queue.clone(),
+            self.graphic_queue.clone(),
             swapchain.image_format(),
             egui_winit_vulkano::GuiConfig {
                 is_overlay: true,
@@ -765,7 +767,7 @@ impl RenderBackend for VulkanBackend {
         })?;
         let mut builder = vulkano::command_buffer::AutoCommandBufferBuilder::primary(
             self.command_buffer_allocator.clone(),
-            self.queue.queue_family_index(),
+            self.graphic_queue.queue_family_index(),
             vulkano::command_buffer::CommandBufferUsage::OneTimeSubmit,
         )
         .map_err(|e| {
@@ -874,9 +876,9 @@ impl RenderBackend for VulkanBackend {
         let scene_future = context
             .previous_frame_end
             .take()
-            .unwrap_or_else(|| vulkano::sync::now(self.queue.device().clone()).boxed())
+            .unwrap_or_else(|| vulkano::sync::now(self.graphic_queue.device().clone()).boxed())
             .join(acquire_future)
-            .then_execute(self.queue.clone(), command_buffer)
+            .then_execute(self.graphic_queue.clone(), command_buffer)
             .map_err(|e| {
                 crate::graphics::backend::error::VulkanError::CommandBufferError(format!(
                     "Failed to execute command buffer: {}",
@@ -891,7 +893,7 @@ impl RenderBackend for VulkanBackend {
 
         let _ = gui_future
             .then_swapchain_present(
-                self.queue.clone(),
+                self.graphic_queue.clone(),
                 vulkano::swapchain::SwapchainPresentInfo::swapchain_image_index(
                     context.swapchain.clone(),
                     image_index,
@@ -1026,35 +1028,53 @@ fn create_virtual_device(
         image_view_format_swizzle: true,
         ..vulkano::device::DeviceFeatures::empty()
     };
+    let mut graphics_queue_family_index: Option<u32> = None;
+    let mut transfer_queue_family_index: Option<u32> = None;
 
-    let (suitable_device, queue_family_indexs) = devices
+    let (suitable_device, graphics_queue_family_index, transfer_queue_family_index) = devices
         .into_iter()
-        .filter(|device| {
-            device.api_version() >= vulkano::Version::V1_3
-                || device.supported_extensions().khr_dynamic_rendering
-        })
         .filter(|device| device.supported_extensions().contains(&device_extensions))
         .map(|device| {
-            let indexs = device
+            device
                 .queue_family_properties()
                 .iter()
                 .enumerate()
-                .filter(|(index, queue_family)| {
-                    println!("Queue family {}: {:?}", index, queue_family.queue_flags);
-
-                    queue_family
+                .for_each(|(i, queue_family)| {
+                    println!(
+                        "Queue family {:?}: {:?}",
+                        queue_family, queue_family.queue_flags
+                    );
+                    if queue_family
                         .queue_flags
-                        .intersects(vulkano::device::QueueFlags::GRAPHICS)
+                        .contains(vulkano::device::QueueFlags::GRAPHICS)
+                        && graphics_queue_family_index.is_none()
                         && device
-                            .presentation_support(*index as u32, event_loop)
+                            .presentation_support(i as u32, &event_loop)
                             .map_or(false, |support| support)
-                })
-                .map(|(index, _)| index as u32)
-                .collect::<Vec<_>>();
+                    {
+                        graphics_queue_family_index = Some(i as u32);
+                    }
 
-            (device, indexs)
+                    if queue_family
+                        .queue_flags
+                        .contains(vulkano::device::QueueFlags::TRANSFER)
+                        && i != graphics_queue_family_index
+                            .expect("No graphics queue family index found")
+                            as usize
+                    {
+                        transfer_queue_family_index = Some(i as u32);
+                    } else {
+                        // if no transfer queue family index, use graphics queue family index
+                        transfer_queue_family_index = graphics_queue_family_index;
+                    }
+                });
+            (
+                device,
+                graphics_queue_family_index.expect("No graphics queue family index found"),
+                transfer_queue_family_index.expect("No transfer queue family index found"),
+            )
         })
-        .min_by_key(|(device, _)| match device.properties().device_type {
+        .min_by_key(|(device, _, _)| match device.properties().device_type {
             vulkano::device::physical::PhysicalDeviceType::DiscreteGpu => 0,
             vulkano::device::physical::PhysicalDeviceType::IntegratedGpu => 1,
             vulkano::device::physical::PhysicalDeviceType::VirtualGpu => 2,
@@ -1074,17 +1094,31 @@ fn create_virtual_device(
         .intersection(&required_features);
 
     println!("Enabled features: {:?}", enabled_features);
+
+    println!(
+        "Graphics queue family index: {:?}",
+        graphics_queue_family_index
+    );
+
+    println!(
+        "Transfer queue family index: {:?}",
+        transfer_queue_family_index
+    );
+
     let (device, queues) = vulkano::device::Device::new(
         suitable_device,
         vulkano::device::DeviceCreateInfo {
             enabled_extensions: device_extensions,
-            queue_create_infos: queue_family_indexs
-                .iter()
-                .map(|index| vulkano::device::QueueCreateInfo {
-                    queue_family_index: *index,
+            queue_create_infos: vec![
+                vulkano::device::QueueCreateInfo {
+                    queue_family_index: graphics_queue_family_index,
                     ..Default::default()
-                })
-                .collect::<Vec<_>>(),
+                },
+                vulkano::device::QueueCreateInfo {
+                    queue_family_index: transfer_queue_family_index,
+                    ..Default::default()
+                },
+            ],
             enabled_features,
             ..Default::default()
         },
@@ -1095,6 +1129,7 @@ fn create_virtual_device(
             e
         ))
     })?;
+
     println!("Number of created queues: {}", queues.len());
     Ok((device, queues))
 }
